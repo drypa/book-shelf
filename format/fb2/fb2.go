@@ -30,8 +30,8 @@ type TitleInfo struct {
 type Author struct {
 	XMLName   xml.Name `xml:"author" json:"-"`
 	FirstName string   `xml:"first-name" json:"firstname"`
-	LastName  string   `xml:"last-name" xml:"lastname"`
-	NikName   string   `xml:"nickname" xml:"nickname,omitempty"`
+	LastName  string   `xml:"last-name" json:"lastname"`
+	NikName   string   `xml:"nickname" json:"nickname,omitempty"`
 }
 
 func ReadFb2(path string) (*FictionBook, error) {
