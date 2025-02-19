@@ -10,28 +10,28 @@ import (
 )
 
 type FictionBook struct {
-	XMLName     xml.Name    `xml:"FictionBook"`
+	XMLName     xml.Name    `xml:"FictionBook" json:"-"`
 	Description Description `xml:"description" json:",inline"`
 }
 type Description struct {
-	XMLName    xml.Name  `xml:"description"`
+	XMLName    xml.Name  `xml:"description" json:"-"`
 	TitleInfo  TitleInfo `xml:"title-info" json:"title-info"`
-	Annotation string    `xml:"annotation" json:"annotation"`
-	Genre      string    `xml:"genre" json:"genre"`
-	Keywords   string    `xml:"keywords" json:"keywords"`
+	Annotation string    `xml:"annotation" json:"annotation,omitempty"`
+	Genre      string    `xml:"genre" json:"genre,omitempty"`
+	Keywords   string    `xml:"keywords" json:"keywords,omitempty"`
 }
 
 type TitleInfo struct {
-	XMLName   xml.Name `xml:"title-info"`
+	XMLName   xml.Name `xml:"title-info" json:"-"`
 	BookTitle string   `xml:"book-title" json:"book-title"`
-	Author    []Author `xml:"author" json:"author"`
+	Author    []Author `xml:"author" json:"author,omitempty"`
 }
 
 type Author struct {
-	XMLName   xml.Name `xml:"author"`
+	XMLName   xml.Name `xml:"author" json:"-"`
 	FirstName string   `xml:"first-name" json:"firstname"`
 	LastName  string   `xml:"last-name" xml:"lastname"`
-	NikName   string   `xml:"nickname" xml:"nickname"`
+	NikName   string   `xml:"nickname" xml:"nickname,omitempty"`
 }
 
 func ReadFb2(path string) (*FictionBook, error) {

@@ -2,7 +2,9 @@ package scanner
 
 import (
 	"archive/zip"
+	"book-shelf/book"
 	"book-shelf/format/fb2"
+	"encoding/json"
 	"fmt"
 	"github.com/pkg/errors"
 	"io"
@@ -58,29 +60,44 @@ func processArchive(path string) error {
 	if err != nil {
 		return err
 	}
-	err = processFb2Books(tempDir)
+	metadata, err := processFb2Books(tempDir)
 	if err != nil {
 		return err
+	}
+	metadataPath := fmt.Sprintf("%s.%s", path, "json")
+	marshal, err := json.Marshal(metadata)
+	if err != nil {
+		return errors.Wrap(err, "failed to marshal metadata")
+	}
+	err = os.WriteFile(metadataPath, marshal, 0644)
+	if err != nil {
+		return errors.Wrapf(err, "failed to write metadata to %s", metadataPath)
 	}
 	return nil
 }
 
-func processFb2Books(path string) error {
+func processFb2Books(path string) ([]book.BookInfo, error) {
 	files, err := getFilesByMask(path, "fb2")
 	if err != nil {
-		return err
+		return nil, errors.Wrap(err, "failed to get fb2 files")
 	}
-	res := make([]fb2.FictionBook, len(files))
-	for _, f := range files {
+	res := make([]book.BookInfo, len(files))
+	for i, f := range files {
 		metaInfo, err := fb2.ReadFb2(f)
 		if err != nil {
-			return err
+			return nil, errors.Wrapf(err, "failed to read fb2 file %s", f)
 		}
-		res = append(res, *metaInfo)
-		fmt.Printf("%s: %v", path, metaInfo)
+		stat, err := os.Stat(path)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to stat file %s", f)
+		}
+		info := book.BookInfo{
+			FictionBook: *metaInfo,
+			SizeInBytes: stat.Size(),
+		}
+		res[i] = info
 	}
-	//marshal, err := json.Marshal(res)
-	return nil
+	return res, nil
 }
 
 func unzip(source string, destination string) error {
