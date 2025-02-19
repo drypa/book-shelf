@@ -7,6 +7,7 @@ import (
 	"golang.org/x/text/transform"
 	"io"
 	"os"
+	"strings"
 )
 
 type FictionBook struct {
@@ -42,7 +43,7 @@ func ReadFb2(path string) (*FictionBook, error) {
 	defer reader.Close()
 	decoder := xml.NewDecoder(reader)
 	decoder.CharsetReader = func(encoding string, input io.Reader) (io.Reader, error) {
-		if encoding == "windows-1251" {
+		if strings.ToLower(encoding) == "windows-1251" {
 			return transform.NewReader(input, charmap.Windows1251.NewDecoder()), nil
 		}
 		return nil, fmt.Errorf("unsupported encoding: %q", encoding)
