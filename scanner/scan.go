@@ -87,13 +87,14 @@ func processFb2Books(path string) ([]book.BookInfo, error) {
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to read fb2 file %s", f)
 		}
-		stat, err := os.Stat(path)
+		stat, err := os.Stat(f)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to stat file %s", f)
 		}
 		info := book.BookInfo{
 			FictionBook: *metaInfo,
 			SizeInBytes: stat.Size(),
+			Filename:    filepath.Base(f),
 		}
 		res[i] = info
 	}

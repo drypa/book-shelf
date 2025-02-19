@@ -8,5 +8,6 @@ import "book-shelf/format/fb2"
 //	}
 type BookInfo struct {
 	fb2.FictionBook `sjon:",inline"`
-	SizeInBytes     int64 `json:"size_in_bytes"`
+	SizeInBytes     int64  `json:"size_in_bytes"`
+	Filename        string `json:"filename"`
 }
