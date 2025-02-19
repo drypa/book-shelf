@@ -15,14 +15,13 @@ import (
 	"sync"
 )
 
-var parallelism = 5
-
 type Scanner struct {
-	directory string
+	directory   string
+	parallelism int
 }
 
-func NewScanner(directory string) *Scanner {
-	return &Scanner{directory: directory}
+func NewScanner(directory string, parallelism int) *Scanner {
+	return &Scanner{directory: directory, parallelism: parallelism}
 }
 
 func (s *Scanner) Scan() error {
@@ -32,7 +31,7 @@ func (s *Scanner) Scan() error {
 		return err
 	}
 
-	semaphore := make(chan struct{}, parallelism)
+	semaphore := make(chan struct{}, s.parallelism)
 
 	wg := sync.WaitGroup{}
 	for i, f := range files {
@@ -44,6 +43,8 @@ func (s *Scanner) Scan() error {
 			err = processArchive(name)
 			if err != nil {
 				log.Printf("failed to process archive %s: %s", name, err)
+			} else {
+				log.Printf("processing archive %s", name)
 			}
 
 		}(f, i)
@@ -83,22 +84,30 @@ func processFb2Books(path string) ([]book.BookInfo, error) {
 	}
 	res := make([]book.BookInfo, len(files))
 	for i, f := range files {
-		metaInfo, err := fb2.ReadFb2(f)
+		info, err := readFb2Meta(f)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to read fb2 file %s", f)
+			return nil, errors.Wrap(err, "failed to read metadata")
 		}
-		stat, err := os.Stat(f)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to stat file %s", f)
-		}
-		info := book.BookInfo{
-			FictionBook: *metaInfo,
-			SizeInBytes: stat.Size(),
-			Filename:    filepath.Base(f),
-		}
-		res[i] = info
+		res[i] = *info
 	}
 	return res, nil
+}
+
+func readFb2Meta(f string) (*book.BookInfo, error) {
+	metaInfo, err := fb2.ReadFb2(f)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to read fb2 file %s", f)
+	}
+	stat, err := os.Stat(f)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to stat file %s", f)
+	}
+	info := book.BookInfo{
+		FictionBook: *metaInfo,
+		SizeInBytes: stat.Size(),
+		Filename:    filepath.Base(f),
+	}
+	return &info, nil
 }
 
 func unzip(source string, destination string) error {
