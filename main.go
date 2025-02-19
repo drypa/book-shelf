@@ -2,6 +2,7 @@ package main
 
 import (
 	"book-shelf/scanner"
+	"fmt"
 	"os"
 	"strconv"
 )
@@ -17,6 +18,10 @@ func main() {
 		if err == nil {
 			parallelism = res
 		}
+	}
+	if len(os.Args) < 2 {
+		fmt.Printf("Usage: %s <directory>\n", os.Args[0])
+		return
 	}
 	s := scanner.NewScanner(os.Args[1], parallelism)
 	_ = s.Scan()
