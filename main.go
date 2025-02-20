@@ -1,8 +1,8 @@
 package main
 
 import (
-	"book-shelf/scanner"
 	"fmt"
+	"github.com/drypa/book-shelf/scanner"
 	"os"
 	"strconv"
 )

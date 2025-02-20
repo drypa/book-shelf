@@ -1,13 +1,12 @@
 package scanner
 
 import (
-	"archive/zip"
-	"book-shelf/book"
-	"book-shelf/format/fb2"
 	"encoding/json"
 	"fmt"
+	"github.com/drypa/book-shelf/archive"
+	"github.com/drypa/book-shelf/book"
+	"github.com/drypa/book-shelf/format/fb2"
 	"github.com/pkg/errors"
-	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -57,7 +56,7 @@ func processArchive(path string) error {
 	fmt.Printf("Scanning %s\n", path)
 	tempDir, err := os.MkdirTemp("", "")
 	defer os.RemoveAll(tempDir)
-	err = unzip(path, tempDir)
+	err = archive.Unzip(path, tempDir)
 	if err != nil {
 		return err
 	}
@@ -77,12 +76,12 @@ func processArchive(path string) error {
 	return nil
 }
 
-func processFb2Books(path string) ([]book.BookInfo, error) {
+func processFb2Books(path string) ([]book.Info, error) {
 	files, err := getFilesByMask(path, "fb2")
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get fb2 files")
 	}
-	res := make([]book.BookInfo, len(files))
+	res := make([]book.Info, len(files))
 	for i, f := range files {
 		info, err := readFb2Meta(f)
 		if err != nil {
@@ -93,7 +92,7 @@ func processFb2Books(path string) ([]book.BookInfo, error) {
 	return res, nil
 }
 
-func readFb2Meta(f string) (*book.BookInfo, error) {
+func readFb2Meta(f string) (*book.Info, error) {
 	metaInfo, err := fb2.ReadFb2(f)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to read fb2 file %s", f)
@@ -102,50 +101,12 @@ func readFb2Meta(f string) (*book.BookInfo, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to stat file %s", f)
 	}
-	info := book.BookInfo{
+	info := book.Info{
 		FictionBook: *metaInfo,
 		SizeInBytes: stat.Size(),
 		Filename:    filepath.Base(f),
 	}
 	return &info, nil
-}
-
-func unzip(source string, destination string) error {
-	zr, err := zip.OpenReader(source)
-	if err != nil {
-		return err
-	}
-	defer zr.Close()
-	for _, f := range zr.File {
-		destPath := filepath.Join(destination, f.Name)
-		if !strings.HasPrefix(destPath, filepath.Clean(destination)+string(os.PathSeparator)) {
-			return fmt.Errorf("%s: illegal file path", destPath)
-		}
-		if f.FileInfo().IsDir() {
-			if err := os.MkdirAll(destPath, os.ModePerm); err != nil {
-				return errors.Wrapf(err, "%s: create directory", destPath)
-			}
-			continue
-		}
-		if err = os.MkdirAll(filepath.Dir(destPath), os.ModePerm); err != nil {
-			return errors.Wrapf(err, "%s: create directory", destPath)
-		}
-		outFile, err := os.OpenFile(destPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
-		defer outFile.Close()
-		if err != nil {
-			return errors.Wrapf(err, "%s: open file", destPath)
-		}
-		rc, err := f.Open()
-		defer rc.Close()
-		if err != nil {
-			return errors.Wrapf(err, "%s: open file", destPath)
-		}
-		_, err = io.Copy(outFile, rc)
-		if err != nil {
-			return errors.Wrapf(err, "%s: copy file", destPath)
-		}
-	}
-	return nil
 }
 
 func getFilesByMask(directory string, suffix string) ([]string, error) {
