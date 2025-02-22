@@ -53,8 +53,8 @@ func (s *Scanner) Scan() error {
 }
 
 func processArchive(path string) error {
-	fmt.Printf("Scanning %s\n", path)
-	tempDir, err := os.MkdirTemp("", "")
+	log.Printf("Scanning %s\n", path)
+	tempDir, err := os.MkdirTemp("", "bookshelf")
 	defer os.RemoveAll(tempDir)
 	err = archive.Unzip(path, tempDir)
 	if err != nil {
@@ -85,7 +85,8 @@ func processFb2Books(path string) ([]book.Info, error) {
 	for i, f := range files {
 		info, err := readFb2Meta(f)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to read metadata")
+			log.Printf("failed to read metadata from %s: %s", f, err)
+			continue
 		}
 		res[i] = *info
 	}

@@ -30,7 +30,7 @@ func Unzip(source string, destination string) error {
 		if err = os.MkdirAll(filepath.Dir(destPath), os.ModePerm); err != nil {
 			return errors.Wrapf(err, "%s: create directory", destPath)
 		}
-		outFile, err := os.OpenFile(destPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
+		outFile, err := os.OpenFile(destPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, os.ModePerm)
 		defer outFile.Close()
 		if err != nil {
 			return errors.Wrapf(err, "%s: open file", destPath)
