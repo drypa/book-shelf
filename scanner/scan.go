@@ -103,7 +103,7 @@ func readFb2Meta(f string) (*book.Info, error) {
 		return nil, errors.Wrapf(err, "failed to stat file %s", f)
 	}
 	info := book.Info{
-		FictionBook: *metaInfo,
+		Description: *metaInfo,
 		SizeInBytes: stat.Size(),
 		Filename:    filepath.Base(f),
 	}

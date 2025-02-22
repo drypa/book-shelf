@@ -11,10 +11,6 @@ import (
 	"strings"
 )
 
-type FictionBook struct {
-	XMLName     xml.Name    `xml:"FictionBook" json:"-"`
-	Description Description `xml:"description" json:",inline"`
-}
 type Description struct {
 	XMLName    xml.Name  `xml:"description" json:"-"`
 	TitleInfo  TitleInfo `xml:"title-info" json:"title-info"`
@@ -36,7 +32,7 @@ type Author struct {
 	NikName   string   `xml:"nickname" json:"nickname,omitempty"`
 }
 
-func ReadFb2(path string) (*FictionBook, error) {
+func ReadFb2(path string) (*Description, error) {
 	reader, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -56,8 +52,6 @@ func ReadFb2(path string) (*FictionBook, error) {
 		return nil, fmt.Errorf("unsupported encoding: %q", encoding)
 	}
 
-	fb := FictionBook{}
-
 	for {
 		tok, err := decoder.Token()
 		if err == io.EOF {
@@ -75,8 +69,7 @@ func ReadFb2(path string) (*FictionBook, error) {
 				if err := decoder.DecodeElement(&description, &se); err != nil {
 					return nil, errors.Wrap(err, "error decoding description")
 				}
-				fb.Description = description
-				return &fb, nil
+				return &description, nil
 
 			} else if se.Name.Local == "body" {
 				_ = decoder.Skip()
@@ -87,5 +80,5 @@ func ReadFb2(path string) (*FictionBook, error) {
 			return nil, err
 		}
 	}
-	return &fb, nil
+	return nil, errors.New("description could not be read")
 }
