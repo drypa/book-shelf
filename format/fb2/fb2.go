@@ -12,11 +12,11 @@ import (
 )
 
 type Description struct {
-	XMLName    xml.Name  `xml:"description" json:"-"`
-	TitleInfo  TitleInfo `xml:"title-info" json:"title-info"`
-	Annotation string    `xml:"annotation" json:"annotation,omitempty"`
-	Genre      string    `xml:"genre" json:"genre,omitempty"`
-	Keywords   string    `xml:"keywords" json:"keywords,omitempty"`
+	XMLName   xml.Name  `xml:"description" json:"-"`
+	TitleInfo TitleInfo `xml:"title-info" json:"title-info"`
+	//Annotation string    `xml:"annotation" json:"annotation,omitempty"`
+	Genre    string `xml:"genre" json:"genre,omitempty"`
+	Keywords string `xml:"keywords" json:"keywords,omitempty"`
 }
 
 type TitleInfo struct {
