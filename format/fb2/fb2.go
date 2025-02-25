@@ -12,11 +12,11 @@ import (
 )
 
 type Description struct {
-	XMLName    xml.Name  `xml:"description" json:"-"`
-	TitleInfo  TitleInfo `xml:"title-info" json:"title-info"`
-	Annotation string    `xml:"annotation" json:"annotation,omitempty"`
-	Genre      string    `xml:"genre" json:"genre,omitempty"`
-	Keywords   string    `xml:"keywords" json:"keywords,omitempty"`
+	XMLName   xml.Name  `xml:"description" json:"-"`
+	TitleInfo TitleInfo `xml:"title-info" json:"title-info"`
+	//Annotation string    `xml:"annotation" json:"annotation,omitempty"`
+	Genre    string `xml:"genre" json:"genre,omitempty"`
+	Keywords string `xml:"keywords" json:"keywords,omitempty"`
 }
 
 type TitleInfo struct {
@@ -32,6 +32,14 @@ type Author struct {
 	NikName   string   `xml:"nickname" json:"nickname,omitempty"`
 }
 
+var charMap = map[string]*charmap.Charmap{
+	"windows-1251": charmap.Windows1251,
+	"windows-1252": charmap.Windows1252,
+	"iso-8859-1":   charmap.ISO8859_1,
+	"koi8-r":       charmap.KOI8R,
+	"iso-8859-5":   charmap.ISO8859_5,
+}
+
 func ReadFb2(path string) (*Description, error) {
 	reader, err := os.Open(path)
 	if err != nil {
@@ -40,16 +48,12 @@ func ReadFb2(path string) (*Description, error) {
 	defer reader.Close()
 	decoder := xml.NewDecoder(reader)
 	decoder.CharsetReader = func(encoding string, input io.Reader) (io.Reader, error) {
-		if strings.ToLower(encoding) == "windows-1251" {
-			return transform.NewReader(input, charmap.Windows1251.NewDecoder()), nil
+		currentCharMap := charMap[strings.ToLower(encoding)]
+		if currentCharMap == nil {
+			return nil, fmt.Errorf("unsupported encoding: %q", encoding)
 		}
-		if strings.ToLower(encoding) == "windows-1252" {
-			return transform.NewReader(input, charmap.Windows1252.NewDecoder()), nil
-		}
-		if strings.ToLower(encoding) == "iso-8859-1" {
-			return transform.NewReader(input, charmap.ISO8859_1.NewDecoder()), nil
-		}
-		return nil, fmt.Errorf("unsupported encoding: %q", encoding)
+
+		return transform.NewReader(input, currentCharMap.NewDecoder()), nil
 	}
 
 	for {
