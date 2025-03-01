@@ -35,6 +35,7 @@ type Author struct {
 var charMap = map[string]*charmap.Charmap{
 	"windows-1251": charmap.Windows1251,
 	"windows-1252": charmap.Windows1252,
+	"windows-1255": charmap.Windows1255,
 	"iso-8859-1":   charmap.ISO8859_1,
 	"koi8-r":       charmap.KOI8R,
 	"iso-8859-5":   charmap.ISO8859_5,
