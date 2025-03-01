@@ -96,14 +96,14 @@ func processFb2Books(path string) ([]book.Info, error) {
 func readFb2Meta(f string) (*book.Info, error) {
 	metaInfo, err := fb2.ReadFb2(f)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to read fb2 file %s", f)
+		log.Printf("failed to read fb2 file %s: %v", f, err)
 	}
 	stat, err := os.Stat(f)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to stat file %s", f)
 	}
 	info := book.Info{
-		Description: *metaInfo,
+		Description: metaInfo,
 		SizeInBytes: stat.Size(),
 		Filename:    filepath.Base(f),
 	}
