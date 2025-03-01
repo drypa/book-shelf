@@ -31,15 +31,15 @@ func Unzip(source string, destination string) error {
 			return errors.Wrapf(err, "%s: create directory", destPath)
 		}
 		outFile, err := os.OpenFile(destPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, os.ModePerm)
+		if err != nil {
+			return errors.Wrapf(err, "%s: open file", destPath)
+		}
 		defer outFile.Close()
-		if err != nil {
-			return errors.Wrapf(err, "%s: open file", destPath)
-		}
 		rc, err := f.Open()
-		defer rc.Close()
 		if err != nil {
 			return errors.Wrapf(err, "%s: open file", destPath)
 		}
+		defer rc.Close()
 		_, err = io.Copy(outFile, rc)
 		if err != nil {
 			return errors.Wrapf(err, "%s: copy file", destPath)
