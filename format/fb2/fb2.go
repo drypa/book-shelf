@@ -49,6 +49,10 @@ func ReadFb2(path string) (*Description, error) {
 	defer reader.Close()
 	decoder := xml.NewDecoder(reader)
 	decoder.CharsetReader = func(encoding string, input io.Reader) (io.Reader, error) {
+		if strings.ToLower(encoding) == "utf-8" {
+			return input, nil
+		}
+
 		currentCharMap := charMap[strings.ToLower(encoding)]
 		if currentCharMap == nil {
 			return nil, fmt.Errorf("unsupported encoding: %q", encoding)

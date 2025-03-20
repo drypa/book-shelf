@@ -58,11 +58,11 @@ func processArchive(path string) error {
 	defer os.RemoveAll(tempDir)
 	err = archive.Unzip(path, tempDir)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "%s: unzip", path)
 	}
 	metadata, err := processFb2Books(tempDir)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "%s: process books", path)
 	}
 	metadataPath := fmt.Sprintf("%s.%s", path, "json")
 	marshal, err := json.Marshal(metadata)
