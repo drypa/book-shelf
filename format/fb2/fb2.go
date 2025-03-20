@@ -12,11 +12,11 @@ import (
 )
 
 type Description struct {
-	XMLName    xml.Name  `xml:"description" json:"-"`
-	TitleInfo  TitleInfo `xml:"title-info" json:"title-info"`
-	Annotation string    `xml:"annotation" json:"annotation,omitempty"`
-	Genre      string    `xml:"genre" json:"genre,omitempty"`
-	Keywords   string    `xml:"keywords" json:"keywords,omitempty"`
+	XMLName    xml.Name   `xml:"description" json:"-"`
+	TitleInfo  *TitleInfo `xml:"title-info" json:"title-info"`
+	Annotation string     `xml:"annotation" json:"annotation,omitempty"`
+	Genre      string     `xml:"genre" json:"genre,omitempty"`
+	Keywords   string     `xml:"keywords" json:"keywords,omitempty"`
 }
 
 type TitleInfo struct {
@@ -25,11 +25,26 @@ type TitleInfo struct {
 	Author    []Author `xml:"author" json:"author,omitempty"`
 }
 
+func (ti TitleInfo) Authors() string {
+	if ti.Author == nil || len(ti.Author) == 0 {
+		return ""
+	}
+	authors := make([]string, len(ti.Author))
+	for _, a := range ti.Author {
+		authors = append(authors, a.String())
+	}
+	return strings.Join(authors, ", ")
+}
+
 type Author struct {
 	XMLName   xml.Name `xml:"author" json:"-"`
 	FirstName string   `xml:"first-name" json:"firstname"`
 	LastName  string   `xml:"last-name" json:"lastname"`
 	NikName   string   `xml:"nickname" json:"nickname,omitempty"`
+}
+
+func (a *Author) String() string {
+	return fmt.Sprintf("%s %s %s", a.FirstName, a.LastName, a.NikName)
 }
 
 var charMap = map[string]*charmap.Charmap{

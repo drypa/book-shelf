@@ -25,7 +25,7 @@ func NewScanner(directory string, parallelism int) *Scanner {
 
 func (s *Scanner) Scan() error {
 
-	files, err := getFilesByMask(s.directory, ".zip")
+	files, err := GetFilesByMask(s.directory, ".zip")
 	if err != nil {
 		return err
 	}
@@ -77,7 +77,7 @@ func processArchive(path string) error {
 }
 
 func processFb2Books(path string) ([]book.Info, error) {
-	files, err := getFilesByMask(path, "fb2")
+	files, err := GetFilesByMask(path, ".fb2")
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get fb2 files")
 	}
@@ -110,7 +110,7 @@ func readFb2Meta(f string) (*book.Info, error) {
 	return &info, nil
 }
 
-func getFilesByMask(directory string, suffix string) ([]string, error) {
+func GetFilesByMask(directory string, suffix string) ([]string, error) {
 	files, err := os.ReadDir(directory)
 	var res []string
 	if err != nil {
@@ -118,7 +118,7 @@ func getFilesByMask(directory string, suffix string) ([]string, error) {
 	}
 	for _, f := range files {
 		if f.IsDir() {
-			filesByMask, err := getFilesByMask(filepath.Join(directory, f.Name()), suffix)
+			filesByMask, err := GetFilesByMask(filepath.Join(directory, f.Name()), suffix)
 			if err != nil {
 				return res, err
 			}
