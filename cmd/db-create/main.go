@@ -45,18 +45,52 @@ func main() {
 			fmt.Println(err)
 			return
 		}
-		for _, info := range infos {
-			if info != nil {
-				err := insertBook(db, info, zipName)
-				if err != nil {
-					fmt.Println(err)
-					return
-				}
-			}
-
+		err = insertBooks(db, infos, zipName)
+		if err != nil {
+			fmt.Println(err)
+			return
 		}
-
 	}
+
+}
+
+func insertBooks(db *sql.DB, infos []*book.Info, zipName string) error {
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	insertQuery := `INSERT INTO books (title, authors,annotation,genre,keywords,archive,file_name,file_size)
+	Values (?,?,?,?,?,?,?,?)`
+	stmt, err := tx.Prepare(insertQuery)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	for _, b := range infos {
+		if b != nil {
+			if b.Description == nil || b.TitleInfo == nil {
+				fmt.Printf("file %s has no title\n", b.Filename)
+				continue
+			}
+			_, err := stmt.Exec(
+				b.TitleInfo.BookTitle,
+				b.TitleInfo.Authors(),
+				b.Annotation,
+				b.Genre,
+				b.Keywords,
+				zipName,
+				b.Filename,
+				b.SizeInBytes,
+			)
+
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return tx.Commit()
 }
 
 func readJson(path string) ([]*book.Info, error) {
@@ -85,27 +119,5 @@ func createTable(err error, db *sql.DB) error {
     file_name TEXT,
     file_size BIGINT)`
 	_, err = db.Exec(createTableSQL)
-	return err
-}
-
-func insertBook(db *sql.DB, b *book.Info, archive string) error {
-	insertQuery := `INSERT INTO books (title, authors,annotation,genre,keywords,archive,file_name,file_size)
-	Values (?,?,?,?,?,?,?,?)`
-
-	if b.Description == nil || b.TitleInfo == nil {
-		fmt.Printf("file %s has no title\n", b.Filename)
-		return nil
-	}
-
-	_, err := db.Exec(insertQuery,
-		b.TitleInfo.BookTitle,
-		b.TitleInfo.Authors(),
-		b.Annotation,
-		b.Genre,
-		b.Keywords,
-		archive,
-		b.Filename,
-		b.SizeInBytes,
-	)
 	return err
 }
