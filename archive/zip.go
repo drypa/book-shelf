@@ -47,3 +47,28 @@ func Unzip(source string, destination string) error {
 	}
 	return nil
 }
+
+func UnzipFile(zipPath string, fileName string) ([]byte, error) {
+	zr, err := zip.OpenReader(zipPath)
+	if err != nil {
+		return nil, err
+	}
+	defer zr.Close()
+	for _, f := range zr.File {
+		if f.Name != fileName {
+			continue
+		}
+		rc, err := f.Open()
+		if err != nil {
+			return nil, err
+		}
+		defer rc.Close()
+		file := make([]byte, f.UncompressedSize64)
+		_, err = rc.Read(file)
+		if err != nil && err != io.EOF {
+			return nil, err
+		}
+		return file, nil
+	}
+	return nil, fmt.Errorf("%s: file not found", fileName)
+}
