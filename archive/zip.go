@@ -58,17 +58,20 @@ func UnzipFile(zipPath string, fileName string) ([]byte, error) {
 		if f.Name != fileName {
 			continue
 		}
-		rc, err := f.Open()
-		if err != nil {
-			return nil, err
-		}
-		defer rc.Close()
-		file := make([]byte, f.UncompressedSize64)
-		_, err = rc.Read(file)
-		if err != nil && err != io.EOF {
-			return nil, err
-		}
-		return file, nil
+		return readFile(f)
 	}
 	return nil, fmt.Errorf("%s: file not found", fileName)
+}
+
+func readFile(f *zip.File) ([]byte, error) {
+	rc, err := f.Open()
+	if err != nil {
+		return nil, err
+	}
+	defer rc.Close()
+	file, err := io.ReadAll(rc)
+	if err != nil {
+		return nil, err
+	}
+	return file, nil
 }

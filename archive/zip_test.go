@@ -2,6 +2,8 @@ package archive
 
 import (
 	"archive/zip"
+	"bytes"
+	"crypto/rand"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -102,5 +104,38 @@ func TestUnzip(t *testing.T) {
 		if _, err := os.Stat(extractedPath); os.IsNotExist(err) {
 			t.Errorf("Файл %s не был извлечен", f.Name)
 		}
+	}
+}
+
+func TestUnzipLargeFile(t *testing.T) {
+	zipFileName := "test.zip"
+	fileName := "test.txt"
+	fileContent := make([]byte, 1024*100)
+	rand.Read(fileContent)
+
+	buf := new(bytes.Buffer)
+	zipWriter := zip.NewWriter(buf)
+	f, err := zipWriter.Create(fileName)
+	if err != nil {
+		t.Fatalf("Failed to create file in zip: %v", err)
+	}
+	_, err = f.Write(fileContent)
+	if err != nil {
+		t.Fatalf("Failed to write to zip file: %v", err)
+	}
+	zipWriter.Close()
+
+	// Записываем ZIP в файл
+	os.WriteFile(zipFileName, buf.Bytes(), 0644)
+	defer os.Remove(zipFileName)
+
+	// Тестируем чтение файла
+	data, err := UnzipFile(zipFileName, fileName)
+	if err != nil {
+		t.Fatalf("UnzipFile failed: %v", err)
+	}
+
+	if !bytes.Equal(data, fileContent) {
+		t.Errorf("Extracted data does not match original data")
 	}
 }
