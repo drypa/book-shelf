@@ -32,7 +32,7 @@ func (s *Search) GetResultsAsText() string {
 }
 
 func (s *Search) GetBook(num int) *s.Book {
-	if num < 1 || num >= len(s.Results) {
+	if num < 1 || num > len(s.Results) {
 		return nil
 	}
 	return s.Results[num-1]

@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"errors"
 	s "github.com/drypa/book-shelf/storage"
 	"strings"
 )
@@ -15,11 +16,25 @@ func NewRepository(db *sql.DB) *Repository {
 }
 
 func (r *Repository) Search(title string, author string) ([]*s.Book, error) {
-	query := "SELECT id, title, authors, annotation, genre, keywords, archive, file_name, file_size FROM books WHERE lower(authors) like ? and lower(title) like ? LIMIT 100;"
-	authorPattern := "%" + strings.ToLower(author) + "%"
-	titlePattern := "%" + strings.ToLower(title) + "%"
+	query := "SELECT id, title, authors, annotation, genre, keywords, archive, file_name, file_size FROM books"
+	conditions := []string{}
+	args := []interface{}{}
 
-	rows, err := r.db.Query(query, authorPattern, titlePattern)
+	if title != "" {
+		conditions = append(conditions, "title LIKE ? COLLATE NOCASE")
+		args = append(args, "%"+title+"%")
+	}
+	if author != "" {
+		conditions = append(conditions, "authors LIKE ? COLLATE NOCASE")
+		args = append(args, "%"+author+"%")
+	}
+	if len(conditions) == 0 {
+		return nil, errors.New("at least one search field (title or author) must be provided")
+	}
+
+	query = query + " WHERE " + strings.Join(conditions, " AND ") + " LIMIT 10;"
+
+	rows, err := r.db.Query(query, args...)
 	if err != nil {
 		return nil, err
 	}
