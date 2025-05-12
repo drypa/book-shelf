@@ -22,6 +22,10 @@ func (s *Search) SetBooks(books []*s.Book) {
 }
 
 func (s *Search) GetResultsAsText() string {
+	if len(s.Results) == 0 {
+		return "no books found"
+	}
+
 	res := ""
 	i := 1
 	for _, book := range s.Results {
