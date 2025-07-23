@@ -110,7 +110,7 @@ func getFileAction(text string, b *Bot, update tgbotapi.Update, tg *tgbotapi.Bot
 		return nil, errors.Wrap(err, "get file")
 	}
 	share := tgbotapi.NewDocumentUpload(update.Message.Chat.ID, tgbotapi.FileBytes{
-		Name:  book.FileName,
+		Name:  book.GetDownloadFileName(),
 		Bytes: file,
 	})
 
