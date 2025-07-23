@@ -133,7 +133,7 @@ func setAuthorAction(text string, b *Bot, update tgbotapi.Update, tg *tgbotapi.B
 		return nil, errors.Wrap(err, "get search")
 	}
 	search.UpdateAuthor(param)
-	books, err := b.repository.Search(search.Title, search.Author)
+	books, err := b.repository.Search(search.Title, search.Author, 10, 0)
 	if err != nil {
 		return nil, errors.Wrap(err, "search")
 	}
@@ -156,7 +156,7 @@ func setTitleAction(text string, b *Bot, update tgbotapi.Update, tg *tgbotapi.Bo
 	}
 	search.UpdateTitle(param)
 
-	books, err := b.repository.Search(search.Title, search.Author)
+	books, err := b.repository.Search(search.Title, search.Author, 10, 0)
 	if err != nil {
 		return nil, errors.Wrap(err, "search")
 	}
@@ -171,7 +171,7 @@ func getResultsAction(text string, b *Bot, update tgbotapi.Update, tg *tgbotapi.
 	if err != nil {
 		return nil, errors.Wrap(err, "get search")
 	}
-	books, err := b.repository.Search(search.Title, search.Author)
+	books, err := b.repository.Search(search.Title, search.Author, 10, 0)
 	if err != nil {
 		return nil, errors.Wrap(err, "search")
 	}

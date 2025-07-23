@@ -15,7 +15,7 @@ func NewRepository(db *sql.DB) *Repository {
 	return &Repository{db: db}
 }
 
-func (r *Repository) Search(title string, author string) ([]*s.Book, error) {
+func (r *Repository) Search(title string, author string, limit int, offset int) ([]*s.Book, error) {
 	query := "SELECT id, title, authors, annotation, genre, keywords, archive, file_name, file_size FROM books"
 	conditions := []string{}
 	args := []interface{}{}
@@ -32,7 +32,8 @@ func (r *Repository) Search(title string, author string) ([]*s.Book, error) {
 		return nil, errors.New("at least one search field (title or author) must be provided")
 	}
 
-	query = query + " WHERE " + strings.Join(conditions, " AND ") + " LIMIT 10;"
+	query = query + " WHERE " + strings.Join(conditions, " AND ") + " LIMIT ? OFFSET ?;"
+	args = append(args, limit, offset)
 
 	rows, err := r.db.Query(query, args...)
 	if err != nil {
