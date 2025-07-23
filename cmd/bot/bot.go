@@ -48,7 +48,7 @@ func (b *Bot) processNotifications(ctx context.Context, tg *tgbotapi.BotAPI, upd
 				sendResponse(createTextReplyMessage("Command not supported", update.Message), tg)
 				continue
 			}
-			resp, err := a(msg.Text, b, update, tg)
+			resp, err := a(msg.Text, b, update)
 			if err != nil {
 				sendResponse(createTextReplyMessage(fmt.Sprintf("Error: %v", err), update.Message), tg)
 				continue
@@ -69,7 +69,7 @@ func getCommand(text string) string {
 	}
 }
 
-var actions = map[string]func(string, *Bot, tgbotapi.Update, *tgbotapi.BotAPI) (tgbotapi.Chattable, error){
+var actions = map[string]func(string, *Bot, tgbotapi.Update) (tgbotapi.Chattable, error){
 	"/start":  startAction,
 	"/author": setAuthorAction,
 	"/title":  setTitleAction,
@@ -77,7 +77,7 @@ var actions = map[string]func(string, *Bot, tgbotapi.Update, *tgbotapi.BotAPI) (
 	"/get":    getFileAction,
 }
 
-func getFileAction(text string, b *Bot, update tgbotapi.Update, tg *tgbotapi.BotAPI) (tgbotapi.Chattable, error) {
+func getFileAction(text string, b *Bot, update tgbotapi.Update) (tgbotapi.Chattable, error) {
 	search, err := b.searcher.GetSearch(update.Message.From.ID)
 	if err != nil {
 		return nil, errors.Wrap(err, "get search")
@@ -117,13 +117,13 @@ func getFileAction(text string, b *Bot, update tgbotapi.Update, tg *tgbotapi.Bot
 	return share, nil
 }
 
-func startAction(text string, b *Bot, update tgbotapi.Update, tg *tgbotapi.BotAPI) (tgbotapi.Chattable, error) {
+func startAction(text string, b *Bot, update tgbotapi.Update) (tgbotapi.Chattable, error) {
 	_ = b.searcher.AddSearch(update.Message.From.ID)
 	msg := createTextReplyMessage("new search started", update.Message)
 	return msg, nil
 }
 
-func setAuthorAction(text string, b *Bot, update tgbotapi.Update, tg *tgbotapi.BotAPI) (tgbotapi.Chattable, error) {
+func setAuthorAction(text string, b *Bot, update tgbotapi.Update) (tgbotapi.Chattable, error) {
 	param := getCommandParameter(text, "/author")
 	if param == "" {
 		return nil, errors.New("author parameter is required")
@@ -144,7 +144,7 @@ func setAuthorAction(text string, b *Bot, update tgbotapi.Update, tg *tgbotapi.B
 	return msg, nil
 }
 
-func setTitleAction(text string, b *Bot, update tgbotapi.Update, tg *tgbotapi.BotAPI) (tgbotapi.Chattable, error) {
+func setTitleAction(text string, b *Bot, update tgbotapi.Update) (tgbotapi.Chattable, error) {
 	param := getCommandParameter(text, "/title")
 	if param == "" {
 		return nil, errors.New("title parameter is required")
@@ -166,7 +166,7 @@ func setTitleAction(text string, b *Bot, update tgbotapi.Update, tg *tgbotapi.Bo
 
 	return msg, nil
 }
-func getResultsAction(text string, b *Bot, update tgbotapi.Update, tg *tgbotapi.BotAPI) (tgbotapi.Chattable, error) {
+func getResultsAction(text string, b *Bot, update tgbotapi.Update) (tgbotapi.Chattable, error) {
 	search, err := b.searcher.GetSearch(update.Message.From.ID)
 	if err != nil {
 		return nil, errors.Wrap(err, "get search")
