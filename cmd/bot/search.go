@@ -9,6 +9,7 @@ type Search struct {
 	Author  string
 	Title   string
 	Results []*s.Book
+	offset  int
 }
 
 func (s *Search) UpdateAuthor(author string) {

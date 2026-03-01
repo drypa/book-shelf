@@ -113,7 +113,7 @@ func getFileAction(text string, b *Bot, update tgbotapi.Update) (tgbotapi.Chatta
 		Name:  book.GetDownloadFileName(),
 		Bytes: file,
 	})
-
+	slog.Info("book downloaded", "name", book.Title, "authors", book.Authors)
 	return share, nil
 }
 
@@ -133,7 +133,7 @@ func setAuthorAction(text string, b *Bot, update tgbotapi.Update) (tgbotapi.Chat
 		return nil, errors.Wrap(err, "get search")
 	}
 	search.UpdateAuthor(param)
-	books, err := b.repository.Search(search.Title, search.Author, 10, 0)
+	books, err := b.repository.Search(search.Title, search.Author, 10, search.offset)
 	if err != nil {
 		return nil, errors.Wrap(err, "search")
 	}
