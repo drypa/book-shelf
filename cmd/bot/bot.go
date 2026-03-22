@@ -7,6 +7,8 @@ import (
 	"github.com/pkg/errors"
 	"log"
 	"log/slog"
+	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 )
@@ -17,9 +19,9 @@ type Bot struct {
 	storage    *storage
 }
 
-func newBot(ctx context.Context, token string, r *Repository, s *storage) (*Bot, error) {
+func newBot(ctx context.Context, token string, r *Repository, s *storage, proxy string) (*Bot, error) {
 
-	bot, err := tgbotapi.NewBotAPI(token)
+	bot, err := newTgBot(token, proxy)
 	if err != nil {
 		return nil, errors.Wrap(err, "create bot api")
 	}
@@ -35,6 +37,21 @@ func newBot(ctx context.Context, token string, r *Repository, s *storage) (*Bot,
 	go b.processNotifications(ctx, bot, updatesChan)
 
 	return b, nil
+}
+
+func newTgBot(token string, proxy string) (*tgbotapi.BotAPI, error) {
+	if proxy != "" {
+		proxyUrl, err := url.Parse(proxy)
+		if err != nil {
+			slog.Error("HTTP Proxy url invalid")
+			return nil, err
+		}
+
+		httpClient := &http.Client{Transport: &http.Transport{Proxy: http.ProxyURL(proxyUrl)}}
+
+		return tgbotapi.NewBotAPIWithClient(token, httpClient)
+	}
+	return tgbotapi.NewBotAPI(token)
 }
 
 func (b *Bot) processNotifications(ctx context.Context, tg *tgbotapi.BotAPI, updatesChan tgbotapi.UpdatesChannel) {

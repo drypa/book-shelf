@@ -27,6 +27,8 @@ func main() {
 		return
 	}
 
+	httpProxy := viper.GetString("HTTP_PROXY")
+
 	storage, err := newStorage(dbPath)
 	if err != nil {
 		slog.Error("failed to init storage", err)
@@ -49,7 +51,7 @@ func main() {
 	defer db.Close()
 
 	repository := NewRepository(db)
-	_, err = newBot(ctx, botToken, repository, storage)
+	_, err = newBot(ctx, botToken, repository, storage, httpProxy)
 	if err != nil {
 		log.Fatal(err)
 	}
