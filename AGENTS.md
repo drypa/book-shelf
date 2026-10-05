@@ -39,12 +39,13 @@ are in `README.md` §"Повторный `db-create` дублирует стро
 ./build.sh     # docker compose --profile tools build  (--profile is mandatory: without it
                # scan and db-create are not built, see ADR §4, E3)
 ./up.sh        # docker compose up -d — bot only; scan/db-create hide behind the tools profile
+./down.sh      # docker compose down — stop bot, remove containers + project network
 ./scan.sh      # one-shot, RW bind into the library dir, creates *.zip.json
 ./db-create.sh # one-shot, duplicates rows on re-run
 ```
 
-All four require `.env` next to `docker-compose.yml` and exit 1 with a message if it is
-missing. Warnings about `scan` mutating the library and about duplicated rows live in
+Every script requires `.env` next to `docker-compose.yml` and exits 1 with a message if it
+is missing. Warnings about `scan` mutating the library and about duplicated rows live in
 `README.md` §6–§7.
 
 Gotchas worth knowing before touching compose:
