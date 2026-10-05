@@ -5,7 +5,6 @@ import (
 	"fmt"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/pkg/errors"
-	"log"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -219,6 +218,6 @@ func sendResponse(resp tgbotapi.Chattable, bot *tgbotapi.BotAPI) {
 	_, err := bot.Send(resp)
 
 	if err != nil {
-		log.Println(err)
+		slog.Error("send response failed", "err", err)
 	}
 }

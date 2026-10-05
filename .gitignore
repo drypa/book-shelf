@@ -22,8 +22,26 @@
 go.work
 go.work.sum
 
-# env file
+# ── сборка Go ──────────────────────────────────────────────
+/bot
+/scan
+/db-create
+/cmd/bot/bot
+/cmd/scan/scan
+/cmd/db-create/db-create
+/bin/
+/dist/
+
+# ── рабочие данные (создаются на хосте, монтируются в контейнеры) ──
+/data/
+*.zip.json
+db.sqlite3*          # -wal, -shm, -journal; правило *.sqlite3 их НЕ покрывает
+
+# ── окружение ──────────────────────────────────────────────
 .env
+.env.*
+!.env.example
 
 .idea
+/.opencode/
 *.sqlite3

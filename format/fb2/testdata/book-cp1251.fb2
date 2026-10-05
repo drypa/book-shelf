@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="windows-1251"?>
+<FictionBook xmlns="http://www.gribuser.ru/xml/fictionbook/2.0">
+<description>
+<title-info>
+<genre>sf</genre>
+<author><first-name>Иван</first-name><last-name>Петров</last-name></author>
+<book-title>Пробная книга 1251</book-title>
+<annotation><p>Описание в windows-1251.</p></annotation>
+<keywords>кодировка</keywords>
+</title-info>
+<document-info>
+<author><nickname>bookshelf</nickname></author>
+<program-used>bookshelf test fixture</program-used>
+<id>000000</id>
+<version>1.0</version>
+</document-info>
+</description>
+<body><section><title>1</title><p>Текст.</p></section></body>
+</FictionBook>

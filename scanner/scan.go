@@ -7,7 +7,7 @@ import (
 	"github.com/drypa/book-shelf/book"
 	"github.com/drypa/book-shelf/format/fb2"
 	"github.com/pkg/errors"
-	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -41,9 +41,9 @@ func (s *Scanner) Scan() error {
 			defer func() { <-semaphore }()
 			err = processArchive(name)
 			if err != nil {
-				log.Printf("failed to process archive %s: %s", name, err)
+				slog.Error("failed to process archive", "archive", name, "err", err)
 			} else {
-				log.Printf("processing archive %s", name)
+				slog.Info("processing archive", "archive", name)
 			}
 
 		}(f, i)
@@ -53,7 +53,7 @@ func (s *Scanner) Scan() error {
 }
 
 func processArchive(path string) error {
-	log.Printf("Scanning %s\n", path)
+	slog.Debug("scanning archive", "path", path)
 	tempDir, err := os.MkdirTemp("", "bookshelf")
 	defer os.RemoveAll(tempDir)
 	err = archive.Unzip(path, tempDir)
@@ -85,7 +85,7 @@ func processFb2Books(path string) ([]book.Info, error) {
 	for i, f := range files {
 		info, err := readFb2Meta(f)
 		if err != nil {
-			log.Printf("failed to read metadata from %s: %s", f, err)
+			slog.Warn("failed to read metadata", "file", f, "err", err)
 			continue
 		}
 		res[i] = *info
@@ -96,7 +96,7 @@ func processFb2Books(path string) ([]book.Info, error) {
 func readFb2Meta(f string) (*book.Info, error) {
 	metaInfo, err := fb2.ReadFb2(f)
 	if err != nil {
-		log.Printf("failed to read fb2 file %s: %v", f, err)
+		slog.Warn("failed to read fb2 file", "file", f, "err", err)
 	}
 	stat, err := os.Stat(f)
 	if err != nil {

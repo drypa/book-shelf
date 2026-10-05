@@ -17,9 +17,34 @@ jobs:
     - uses: actions/checkout@v4
 
     - name: Set up Go
-      uses: actions/setup-go@v4
+      uses: actions/setup-go@v5
       with:
         go-version: '1.24'
 
-    - name: Build Bot
-      run: go build -v ./cmd/bot/...
+    # gofmt -l печатает неотформатированные файлы; список должен быть пустым.
+    - name: gofmt
+      run: test -z "$(gofmt -l .)"
+
+    - name: Build all binaries
+      run: go build -v ./...
+
+    - name: Vet
+      run: go vet ./...
+
+    # go-sqlite3 требует cgo — на ubuntu-latest он включён по умолчанию.
+    - name: Test
+      run: go test ./...
+
+  # Сборка cgo-образов заметно медленнее Go-сборки, поэтому вынесена в отдельный
+  # job и ограничена веткой master. Секретов не требует и не содержит.
+  images:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    # --profile tools обязателен: без него compose собирает только сервис bot
+    # (ADR-0001 §4, E3). Ожидаемое поведение зафиксировано комментарием, а не
+    # отдельной проверкой: `docker compose build` собирает 1 образ (bot),
+    # `docker compose --profile tools build` — 3 (bot, scan, db-create).
+    - name: Build images
+      run: docker compose --profile tools build

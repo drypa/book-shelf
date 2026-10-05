@@ -7,6 +7,7 @@ import (
 	"golang.org/x/text/encoding/charmap"
 	"golang.org/x/text/transform"
 	"io"
+	"log/slog"
 	"os"
 	"strings"
 )
@@ -82,7 +83,7 @@ func ReadFb2(path string) (*Description, error) {
 			break
 		}
 		if err != nil {
-			fmt.Println("Error decoding XML:", err)
+			slog.Error("error decoding XML", "err", err)
 			return nil, errors.New("error decoding XML")
 		}
 

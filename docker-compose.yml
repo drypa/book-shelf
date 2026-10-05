@@ -1,0 +1,93 @@
+name: ${COMPOSE_PROJECT_NAME:-book-shelf}
+
+# Общий блок логирования: DRY, три бинаря одинаково.
+x-logging: &logging
+  LOG_LEVEL: "${LOG_LEVEL:-info}"
+  LOG_FORMAT: "${LOG_FORMAT:-json}"
+  TZ: "${TZ:-UTC}"
+
+services:
+  # ──────────────────────────────── бот: единственный долгоживущий сервис
+  bot:
+    image: book-shelf-bot:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: bot
+    restart: on-failure:5          # не бесконечный restart-loop (E8), но переживает ребут хоста
+    init: true                     # reaper зомби; ловит SIGTERM и передаёт PID 1
+    stop_grace_period: 20s
+    stop_signal: SIGTERM
+    read_only: true                # бот не пишет файлы (FR6); tgbotapi отдаёт FileBytes из памяти
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    cap_drop: [ ALL ]
+    security_opt: [ "no-new-privileges:true" ]
+    environment:
+      <<: *logging
+      BOT_TOKEN: "${BOT_TOKEN:-}"                  # валидируется приложением, см. §5.6
+      LIBRARY_DIR: "${LIBRARY_CONTAINER_DIR:-/library}"
+      DB_DSN: "${DB_DSN:-${DATA_CONTAINER_DIR:-/data}/${DB_FILE:-db.sqlite3}}"
+      HTTP_PROXY: "${HTTP_PROXY:-}"
+    volumes:
+      - type: bind
+        source: "${LIBRARY_HOST_DIR:-./data/library}"
+        target: "${LIBRARY_CONTAINER_DIR:-/library}"
+        read_only: true                            # боту достаточно чтения архивов
+      - type: bind
+        source: "${DATA_HOST_DIR:-./data/db}"
+        target: "${DATA_CONTAINER_DIR:-/data}"
+
+  # ──────────────────────────────── scan: одноразовый, RW в каталог библиотеки
+  scan:
+    image: book-shelf-scan:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: scan
+    profiles: [ "tools" ]         # ← единственный способ исключить сервис из `up` (E4)
+    restart: "no"                 # ← иначе restart-loop (E7)
+    init: true
+    user: "${SCAN_USER_ID:-10001}:${SCAN_GID:-10001}"
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m,mode=1777   # сюда scanner делает os.MkdirTemp под распаковку
+    cap_drop: [ ALL ]
+    security_opt: [ "no-new-privileges:true" ]
+    environment:
+      <<: *logging
+      SCAN_PARALLELISM: "${SCAN_PARALLELISM:-5}"
+    volumes:
+      - type: bind
+        source: "${LIBRARY_HOST_DIR:-./data/library}"
+        target: "${LIBRARY_CONTAINER_DIR:-/library}"   # RW: пишет .zip.json (FR7)
+    command: [ "${LIBRARY_CONTAINER_DIR:-/library}" ]   # аргумент в compose, не в скрипте (см. §6, R6)
+
+  # ──────────────────────────────── db-create: одноразовый, читает sidecar'ы, пишет БД
+  db-create:
+    image: book-shelf-db-create:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: db-create
+    profiles: [ "tools" ]
+    restart: "no"
+    init: true
+    user: "${APP_USER_ID:-10001}:${APP_GID:-10001}"
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    cap_drop: [ ALL ]
+    security_opt: [ "no-new-privileges:true" ]
+    environment:
+      <<: *logging
+      DB_DSN: "${DB_DSN:-${DATA_CONTAINER_DIR:-/data}/${DB_FILE:-db.sqlite3}}"
+    volumes:
+      - type: bind
+        source: "${LIBRARY_HOST_DIR:-./data/library}"   # ← нужен: читает *.zip.json (FR7, уточнение)
+        target: "${LIBRARY_CONTAINER_DIR:-/library}"
+        read_only: true
+      - type: bind
+        source: "${DATA_HOST_DIR:-./data/db}"
+        target: "${DATA_CONTAINER_DIR:-/data}"
+    command: [ "${LIBRARY_CONTAINER_DIR:-/library}" ]
