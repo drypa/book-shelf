@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Общие хелперы для build.sh / up.sh / scan.sh / db-create.sh.
-# Источник: build.sh up.sh scan.sh db-create.sh
+# Общие хелперы для build.sh / up.sh / down.sh / scan.sh / db-create.sh.
+# Источник: build.sh up.sh down.sh scan.sh db-create.sh
 
 # shellcheck disable=SC2034  # используется в build.sh / scan.sh / db-create.sh, которые нас подключают
 COMPOSE_PROFILES="tools"
