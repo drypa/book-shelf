@@ -45,7 +45,7 @@ func run(args []string) error {
 	if len(args) < 1 {
 		slog.Error(errUsage.Error(),
 			"hint", "the directory comes from command: of the db-create service in docker-compose.yml "+
-				"(LIBRARY_CONTAINER_DIR); run ./db-create.sh instead of calling the binary directly")
+				"(fixed path /library); run ./db-create.sh instead of calling the binary directly")
 		return errUsage
 	}
 	libraryDir := args[0]
@@ -69,7 +69,7 @@ func run(args []string) error {
 	// sql.Open does not touch the filesystem: without this check an unusable
 	// path would only show up as a confusing error on the first statement.
 	if err := db.Ping(); err != nil {
-		return fmt.Errorf("open database %q: %w (check DATA_HOST_DIR, DATA_CONTAINER_DIR and DB_FILE in .env)", dsn, err)
+		return fmt.Errorf("open database %q: %w (check DATA_HOST_DIR and DB_FILE in .env)", dsn, err)
 	}
 
 	if err := createTable(db); err != nil {

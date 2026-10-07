@@ -6,6 +6,9 @@ x-logging: &logging
   LOG_FORMAT: "${LOG_FORMAT:-json}"
   TZ: "${TZ:-UTC}"
 
+# Пути внутри контейнеров зафиксированы и не настраиваются:
+#   /library — каталог с *.zip-архивами, /data — каталог базы SQLite.
+# Настраиваются только bind-источники на хосте: LIBRARY_HOST_DIR, DATA_HOST_DIR.
 services:
   # ──────────────────────────────── бот: единственный долгоживущий сервис
   bot:
@@ -26,17 +29,17 @@ services:
     environment:
       <<: *logging
       BOT_TOKEN: "${BOT_TOKEN:-}"                  # валидируется приложением, см. §5.6
-      LIBRARY_DIR: "${LIBRARY_CONTAINER_DIR:-/library}"
-      DB_DSN: "${DB_DSN:-${DATA_CONTAINER_DIR:-/data}/${DB_FILE:-db.sqlite3}}"
+      LIBRARY_DIR: "/library"                      # путь в контейнере зафиксирован
+      DB_DSN: "${DB_DSN:-/data/${DB_FILE:-db.sqlite3}}"
       HTTP_PROXY: "${HTTP_PROXY:-}"
     volumes:
       - type: bind
         source: "${LIBRARY_HOST_DIR:-./data/library}"
-        target: "${LIBRARY_CONTAINER_DIR:-/library}"
+        target: "/library"
         read_only: true                            # боту достаточно чтения архивов
       - type: bind
         source: "${DATA_HOST_DIR:-./data/db}"
-        target: "${DATA_CONTAINER_DIR:-/data}"
+        target: "/data"
 
   # ──────────────────────────────── scan: одноразовый, RW в каталог библиотеки
   scan:
@@ -60,8 +63,8 @@ services:
     volumes:
       - type: bind
         source: "${LIBRARY_HOST_DIR:-./data/library}"
-        target: "${LIBRARY_CONTAINER_DIR:-/library}"   # RW: пишет .zip.json (FR7)
-    command: [ "${LIBRARY_CONTAINER_DIR:-/library}" ]   # аргумент в compose, не в скрипте (см. §6, R6)
+        target: "/library"                         # RW: пишет .zip.json (FR7)
+    command: [ "/library" ]                        # аргумент в compose, не в скрипте (см. §6, R6)
 
   # ──────────────────────────────── db-create: одноразовый, читает sidecar'ы, пишет БД
   db-create:
@@ -81,13 +84,13 @@ services:
     security_opt: [ "no-new-privileges:true" ]
     environment:
       <<: *logging
-      DB_DSN: "${DB_DSN:-${DATA_CONTAINER_DIR:-/data}/${DB_FILE:-db.sqlite3}}"
+      DB_DSN: "${DB_DSN:-/data/${DB_FILE:-db.sqlite3}}"
     volumes:
       - type: bind
         source: "${LIBRARY_HOST_DIR:-./data/library}"   # ← нужен: читает *.zip.json (FR7, уточнение)
-        target: "${LIBRARY_CONTAINER_DIR:-/library}"
+        target: "/library"
         read_only: true
       - type: bind
         source: "${DATA_HOST_DIR:-./data/db}"
-        target: "${DATA_CONTAINER_DIR:-/data}"
-    command: [ "${LIBRARY_CONTAINER_DIR:-/library}" ]
+        target: "/data"
+    command: [ "/library" ]

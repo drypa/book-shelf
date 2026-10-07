@@ -43,7 +43,7 @@ func run(args []string) error {
 	if len(args) < 1 {
 		slog.Error(errUsage.Error(),
 			"hint", "the directory comes from command: of the scan service in docker-compose.yml "+
-				"(LIBRARY_CONTAINER_DIR); run ./scan.sh instead of calling the binary directly")
+				"(fixed path /library); run ./scan.sh instead of calling the binary directly")
 		return errUsage
 	}
 	dir := args[0]

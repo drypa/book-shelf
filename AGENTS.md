@@ -27,7 +27,8 @@ Each step is a separate binary and also a separate container:
 | bot | `go run ./cmd/bot` with `LIBRARY_DIR`/`DB_DSN`/`BOT_TOKEN` set | `./up.sh` |
 
 Native runs use the **host** paths; containers always use the container paths
-(`/library`, `/data`) because that is what compose mounts.
+(`/library`, `/data`) because that is what compose mounts. Those container paths are
+hard-coded in `docker-compose.yml` — there is no env var for them.
 
 Re-running `db-create` **duplicates rows**: the insert has no unique constraint or upsert.
 Wipe the DB and rescan when metadata changes; do not "re-run to refresh". Exact commands
@@ -56,7 +57,8 @@ Gotchas worth knowing before touching compose:
   after 5 failed starts instead of looping forever (E8).
 - `bot` mounts the library **read-only** and the DB directory read-write; `scan` mounts
   the library read-write; `db-create` reads sidecars from the library (RO) and writes
-  the DB dir (RW). The DB is bind-mounted as a **directory**, not a file: SQLite needs
+  the DB dir (RW). All three bind into the fixed container paths `/library` and `/data`.
+  The DB is bind-mounted as a **directory**, not a file: SQLite needs
   `-wal`/`-shm` next to it, and bind-mounting a missing file creates a directory.
 - All services run unprivileged as uid/gid `10001` with `read_only` rootfs, a tmpfs
   `/tmp` (`scan` needs 256m for `os.MkdirTemp`), `cap_drop: ALL` and
@@ -72,7 +74,7 @@ Gotchas worth knowing before touching compose:
 - `LIBRARY_DIR` — **directory containing the `.zip` archives** (container path, `/library`).
   It is passed to `newStorage()`; the bot resolves a book as `<LIBRARY_DIR>/<archive column>`.
 - `DB_DSN` — required — the SQLite DSN for `sql.Open("sqlite3", ...)`; in compose it is
-  computed as `${DATA_CONTAINER_DIR}/${DB_FILE}`.
+  computed as `/data/${DB_FILE}` (container path `/data` is fixed).
 - `HTTP_PROXY` — optional, e.g. `http://host:port`. Only the value passed into the
   container counts; a proxy exported in the host shell is no longer picked up (K7).
 - `LOG_LEVEL`, `LOG_FORMAT`, `TZ` — optional, consumed by `internal/logging`.

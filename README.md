@@ -124,9 +124,7 @@ docker compose version                          # v2.x
 | `BOT_TOKEN` | да | — | Токен Telegram-бота от @BotFather. Пустое значение — бот не стартует |
 | `LIBRARY_HOST_DIR` | нет | `./data/library` | Каталог с `*.zip` на хосте, bind-источник для `/library` |
 | `DATA_HOST_DIR` | нет | `./data/db` | Каталог под базу на хосте, bind-источник для `/data` |
-| `LIBRARY_CONTAINER_DIR` | нет | `/library` | То же самое внутри контейнера |
-| `DATA_CONTAINER_DIR` | нет | `/data` | То же самое внутри контейнера |
-| `DB_FILE` | нет | `db.sqlite3` | Имя файла базы внутри `DATA_CONTAINER_DIR` |
+| `DB_FILE` | нет | `db.sqlite3` | Имя файла базы внутри `/data` |
 | `SCAN_PARALLELISM` | нет | `5` | Сколько архивов `scan` обрабатывает одновременно |
 | `HTTP_PROXY` | нет | — | Прокси к `api.telegram.org`. Пусто — прямое соединение |
 | `SCAN_USER_ID` / `SCAN_GID` | нет | `10001` | uid:gid контейнера `scan` |
@@ -135,12 +133,15 @@ docker compose version                          # v2.x
 | `LOG_FORMAT` | нет | `json` | `json` или `text` |
 | `TZ` | нет | `UTC` | Часовой пояс меток времени в логах |
 | `COMPOSE_PROJECT_NAME` | нет | `book-shelf` | Префикс имён контейнеров, сети и томов |
-| `DB_DSN` | нет | `${DATA_CONTAINER_DIR}/${DB_FILE}` | DSN SQLite; задавайте, только если нужно добавить параметры |
+| `DB_DSN` | нет | `/data/${DB_FILE}` | DSN SQLite; задавайте, только если нужно добавить параметры |
 
-**Инвариант `DB_DSN`.** Compose сам вычисляет `DB_DSN` как
-`${DATA_CONTAINER_DIR}/${DB_FILE}` (по умолчанию `/data/db.sqlite3`), поэтому
-хостовые и контейнерные пути менять можно независимо. Чтобы добавить параметры
-DSN, раскомментируйте в `.env` строку `DB_DSN`, например:
+**Пути внутри контейнеров зафиксированы** в `docker-compose.yml` и не настраиваются:
+`/library` — каталог с архивами, `/data` — каталог базы. Независимо меняются только
+пути на хосте (`LIBRARY_HOST_DIR`, `DATA_HOST_DIR`).
+
+**Инвариант `DB_DSN`.** Compose сам вычисляет `DB_DSN` как `/data/${DB_FILE}`
+(по умолчанию `/data/db.sqlite3`), поэтому хостовые пути менять можно независимо.
+Чтобы добавить параметры DSN, раскомментируйте в `.env` строку `DB_DSN`, например:
 
 ```bash
 DB_DSN=/data/db.sqlite3?_journal_mode=WAL&_busy_timeout=5000

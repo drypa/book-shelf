@@ -1,11 +1,18 @@
 # ADR-0001. Развёртывание проекта book-shelf через Docker Compose
 
-- **Статус:** Proposed (к реализации)
+- **Статус:** Amended (2026-10-07: пути внутри контейнера зашиты в compose)
 - **Дата:** 2026-10-02
 - **Автор:** software-architect
 - **Задача:** [`docs/tasks/docker-compose-deploy.md`](../tasks/docker-compose-deploy.md)
 - **Затрагивает:** `cmd/bot`, `cmd/scan`, `cmd/db-create`, новый пакет `internal/config`, новый пакет `internal/logging`
 - **Соглашение об именовании:** `docs/adr/NNNN-<краткое-название>.md`, последовательная нумерация
+
+> **Амендамент (2026-10-07).** Пути внутри контейнера `/library` и `/data` зафиксированы:
+> переменные `LIBRARY_CONTAINER_DIR` и `DATA_CONTAINER_DIR` удалены из
+> `docker-compose.yml` и `.env.example`, значения прописаны непосредственно в
+> `docker-compose.yml`. §5.3 и §5.4.1 приведены в соответствие с текущим состоянием; результаты
+> эксперимента E10 и формулировка критерия 9 сохранены в исходном виде с пометкой
+> о нынешнем состоянии.
 
 ---
 
@@ -120,7 +127,7 @@ compose-файла, нет шаблона окружения, нет скрип�
 | E7 | `restart: unless-stopped` на одноразовом сервисе | Бесконечный restart-loop (`Restarting (1) 2 seconds ago`) | Одноразовым сервисам обязателен `restart: "no"` |
 | E8 | `restart: unless-stopped` + бота, падающего из-за конфигурации | Тот же restart-loop, противоречит NFR «не должен падать в restart-loop» | Нужен ограниченный `restart: on-failure:5` |
 | E9 | Синтаксис `${VAR:?msg}` | Поддерживается, ошибка на этапе интерполяции | **Не применяется** (см. §6, R10): ошибка возникает вне логов контейнера, ломает сборку без секрета |
-| E10 | Вложенная интерполяция `${DB_DSN:-${DATA_CONTAINER_DIR:-/data}/${DB_FILE:-db.sqlite3}}` | Поддерживается, дефолты и переопределение работают | Позволяет вывести DSN без дублирования в `.env`, оставив возможность переопределения |
+| E10 | Вложенная интерполяция `${DB_DSN:-${DATA_CONTAINER_DIR:-/data}/${DB_FILE:-db.sqlite3}}` | Поддерживается, дефолты и переопределение работают | Позволяет вывести DSN без дублирования в `.env`, оставив возможность переопределения. **Амендамент 2026-10-07:** путь зашит, ныне `${DB_DSN:-/data/${DB_FILE:-db.sqlite3}}` (вложенная интерполяция по-прежнему используется) |
 | E11 | Многоступенчатая сборка `golang:1.24-bookworm` → `debian:bookworm-slim`, `CGO_ENABLED=1`, cgo-бинарь | Собирается, работает; финальный образ **138 МБ**; `ldd` показывает только `libc.so.6` | Дизайн Dockerfile подтверждён; `libsqlite3` в образе не нужен (amalgamation линкуется в бинарь) |
 | E12 | `debian:bookworm-slim` и CA-сертификаты | `ca-certificates.crt` **отсутствует** | Ставить CA-сертификаты нужно только в стадии `bot` — это единственный сетевой компонент |
 | E13 | `mattn/go-sqlite3 v1.14.24`: параметры DSN | `_journal_mode=WAL` применяется и в форме пути, и в форме `file:` URI; `busy_timeout` по умолчанию **уже 5000 мс** | `?_journal_mode=WAL` можно задать прямо в `.env`; `busy_timeout` задавать не нужно |
@@ -282,17 +289,17 @@ services:
     environment:
       <<: *logging
       BOT_TOKEN: "${BOT_TOKEN:-}"                  # валидируется приложением, см. §5.6
-      LIBRARY_DIR: "${LIBRARY_CONTAINER_DIR:-/library}"
-      DB_DSN: "${DB_DSN:-${DATA_CONTAINER_DIR:-/data}/${DB_FILE:-db.sqlite3}}"
+      LIBRARY_DIR: "/library"                      # путь в контейнере зафиксирован
+      DB_DSN: "${DB_DSN:-/data/${DB_FILE:-db.sqlite3}}"
       HTTP_PROXY: "${HTTP_PROXY:-}"
     volumes:
       - type: bind
         source: "${LIBRARY_HOST_DIR:-./data/library}"
-        target: "${LIBRARY_CONTAINER_DIR:-/library}"
+        target: "/library"
         read_only: true                            # боту достаточно чтения архивов
       - type: bind
         source: "${DATA_HOST_DIR:-./data/db}"
-        target: "${DATA_CONTAINER_DIR:-/data}"
+        target: "/data"
 
   # ──────────────────────────────── scan: одноразовый, RW в каталог библиотеки
   scan:
@@ -316,8 +323,8 @@ services:
     volumes:
       - type: bind
         source: "${LIBRARY_HOST_DIR:-./data/library}"
-        target: "${LIBRARY_CONTAINER_DIR:-/library}"   # RW: пишет .zip.json (FR7)
-    command: [ "${LIBRARY_CONTAINER_DIR:-/library}" ]   # аргумент в compose, не в скрипте (см. §6, R6)
+        target: "/library"                         # RW: пишет .zip.json (FR7)
+    command: [ "/library" ]                        # аргумент в compose, не в скрипте (см. §6, R6)
 
   # ──────────────────────────────── db-create: одноразовый, читает sidecar'ы, пишет БД
   db-create:
@@ -337,16 +344,16 @@ services:
     security_opt: [ "no-new-privileges:true" ]
     environment:
       <<: *logging
-      DB_DSN: "${DB_DSN:-${DATA_CONTAINER_DIR:-/data}/${DB_FILE:-db.sqlite3}}"
+      DB_DSN: "${DB_DSN:-/data/${DB_FILE:-db.sqlite3}}"
     volumes:
       - type: bind
         source: "${LIBRARY_HOST_DIR:-./data/library}"   # ← нужен: читает *.zip.json (FR7, уточнение)
-        target: "${LIBRARY_CONTAINER_DIR:-/library}"
+        target: "/library"
         read_only: true
       - type: bind
         source: "${DATA_HOST_DIR:-./data/db}"
-        target: "${DATA_CONTAINER_DIR:-/data}"
-    command: [ "${LIBRARY_CONTAINER_DIR:-/library}" ]
+        target: "/data"
+    command: [ "/library" ]
 ```
 
 Ключевые решения и их обоснование:
@@ -386,9 +393,7 @@ services:
 | `BOT_TOKEN` | `bot` | **да** | — | Токен от @BotFather |
 | `HTTP_PROXY` | `bot` | нет | *(пусто)* | Прокси к `api.telegram.org`; пусто → прямое соединение |
 | `DB_DSN` | `bot`, `db-create` | **да** | `/data/db.sqlite3?_journal_mode=WAL` | DSN для `sql.Open("sqlite3", …)`; переопределяет вывод ниже |
-| `DATA_CONTAINER_DIR` | compose | нет | `/data` | Точка монтирования каталога БД в контейнере |
-| `DB_FILE` | compose | нет | `db.sqlite3` | Имя файла БД внутри `DATA_CONTAINER_DIR` |
-| `LIBRARY_CONTAINER_DIR` | compose | нет | `/library` | Точка монтирования каталога архивов в контейнере |
+| `DB_FILE` | compose | нет | `db.sqlite3` | Имя файла БД внутри `/data` |
 | `LIBRARY_HOST_DIR` | compose | нет | `./data/library` | Каталог с `.zip` на хосте (bind-источник) |
 | `DATA_HOST_DIR` | compose | нет | `./data/db` | Каталог с БД на хосте (bind-источник) |
 | `SCAN_PARALLELISM` | `scan` | нет | `5` | Одновременная обработка архивов |
@@ -399,8 +404,12 @@ services:
 | `TZ` | все три | нет | `UTC` | Часовой пояс (нужен пакет `tzdata` в образе) |
 | `COMPOSE_PROJECT_NAME` | compose | нет | `book-shelf` | Префикс имён контейнеров, сети и томов |
 
+**Пути внутри контейнера не переменные** (амендамент 2026-10-07): `/library` и `/data`
+зашиты в `docker-compose.yml`; `LIBRARY_CONTAINER_DIR` и `DATA_CONTAINER_DIR` удалены и
+из compose, и из `.env.example`. Настраиваются только bind-источники на хосте.
+
 Инвариант: `DB_DSN` по умолчанию вычисляется compose как
-`${DATA_CONTAINER_DIR}/${DB_FILE}` (E10). Нет дублирования в `.env`; при необходимости
+`/data/${DB_FILE}` (E10). Нет дублирования в `.env`; при необходимости
 задать DSN-параметры оператор просто раскомментирует в `.env.example` строку `DB_DSN=` и
 задаёт её явно — она имеет приоритет.
 
@@ -434,8 +443,9 @@ services:
 - Стоимость — ~15 строк в одном пакете плюс предупреждение в логах; выгода — отсутствие
   «тихого использования неверного пути», которого требует edge case задачи.
 - Старые имена **не попадают** в compose и `.env.example`: compose требует только новые
-  имена, поэтому оператор с забытым старым `.env` получает громкую ошибку
-  «`LIBRARY_CONTAINER_DIR` … default»/валидацию приложения, а не молчаливое поведение.
+  имена, поэтому оператор с забытым старым `.env` получает валидацию приложения, а не
+  молчаливое поведение. Пути внутри контейнера (`/library`, `/data`) и вовсе зашиты в
+  compose и из `.env` не читаются (амендамент 2026-10-07).
 
 Дедлайн удаления фолбэка фиксируется отдельной задачей (см. план работ, задача T-16), чтобы
 совместимость не стала вечной.
@@ -844,7 +854,7 @@ sidecar'ам, либо полный `./scan.sh` + `./db-create.sh`), но 324 М
 | 6 | `./scan.sh` разово запускает `scan`, возвращает код контейнера | без изменений (E6) |
 | 7 | `./db-create.sh` разово запускает `db-create`, возвращает код контейнера | без изменений (E6) |
 | 8 | Есть `.env.example` со всеми переменными и комментариями | без изменений |
-| 9 | Все значения через `${ПЕРЕМЕННАЯ}`, включая пути к каталогам | без изменений (E10) |
+| 9 | Все значения через `${ПЕРЕМЕННАЯ}`, включая пути к каталогам | **уточнено (амендамент 2026-10-07):** пути на хосте — через `${ПЕРЕМЕННАЯ}`, пути внутри контейнера (`/library`, `/data`) зашиты в compose (E10) |
 | 10 | `.env` в `.gitignore` | без изменений (уже выполнено) |
 | 11 | `DB_PATH` → понятное имя, `DB_CONNECTION_STRING` → понятное; все упоминания согласованы | без изменений; решение — `LIBRARY_DIR` и `DB_DSN` (§5.4.2) |
 | 12 | Каталог архивов: RW в `scan`, RO в `bot` | без изменений; **дополнительно**: RO в `db-create` (уточнение FR7) |
