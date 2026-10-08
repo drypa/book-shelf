@@ -64,6 +64,7 @@ func ReadFb2(path string) (*Description, error) {
 	}
 	defer reader.Close()
 	decoder := xml.NewDecoder(reader)
+	decoder.Entity = map[string]string{} // Явно отключаем XML-сущности для защиты от XXE
 	decoder.CharsetReader = func(encoding string, input io.Reader) (io.Reader, error) {
 		if strings.ToLower(encoding) == "utf-8" {
 			return input, nil
