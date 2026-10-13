@@ -53,27 +53,123 @@ func newTgBot(token string, proxy string) (*tgbotapi.BotAPI, error) {
 	return tgbotapi.NewBotAPI(token)
 }
 
+// updateKind is the routing target chosen for a single Telegram update.
+type updateKind int
+
+const (
+	// updateKindIgnore: neither a message nor a callback (edited_message,
+	// channel_post, empty update, ...): logged at debug and dropped.
+	updateKindIgnore updateKind = iota
+	updateKindMessage
+	updateKindCallback
+)
+
+// classifyUpdate picks the branch for an update. CallbackQuery is checked
+// before Message so a button press can never fall through into the command
+// handler (ADR-0003 §4.3 R1–R3). Pure function: no I/O, table-testable.
+func classifyUpdate(u tgbotapi.Update) updateKind {
+	switch {
+	case u.CallbackQuery != nil:
+		return updateKindCallback
+	case u.Message != nil:
+		return updateKindMessage
+	default:
+		return updateKindIgnore
+	}
+}
+
+// messageDisposition is the pre-dispatch decision for a message update.
+type messageDisposition int
+
+const (
+	// messageSkipNilFrom: no sender (channel artefact) — warn and ignore (M1).
+	messageSkipNilFrom messageDisposition = iota
+	// messageSkipNotPrivate: group/supergroup/channel — debug and ignore (M2).
+	messageSkipNotPrivate
+	// messageDispatch: private message from a known sender — go to actions.
+	messageDispatch
+)
+
+// decideMessage applies the guards that run before the actions map
+// (ADR-0003 M1–M2). Pure function: no I/O, table-testable. A nil Chat is
+// ignored rather than dereferenced.
+func decideMessage(m *tgbotapi.Message) messageDisposition {
+	if m == nil || m.From == nil {
+		return messageSkipNilFrom
+	}
+	if m.Chat == nil || !m.Chat.IsPrivate() {
+		return messageSkipNotPrivate
+	}
+	return messageDispatch
+}
+
 func (b *Bot) processNotifications(ctx context.Context, tg *tgbotapi.BotAPI, updatesChan tgbotapi.UpdatesChannel) {
 	for {
 		select {
 		case update := <-updatesChan:
-			msg := tgbotapi.NewMessage(update.Message.Chat.ID, update.Message.Text)
-
-			a := actions[getCommand(msg.Text)]
-			if a == nil {
-				sendResponse(createTextReplyMessage("Command not supported", update.Message), tg)
-				continue
-			}
-			resp, err := a(msg.Text, b, update)
-			if err != nil {
-				sendResponse(createTextReplyMessage(fmt.Sprintf("Error: %v", err), update.Message), tg)
-				continue
-			}
-			sendResponse(resp, tg)
-
+			b.handleUpdate(tg, update)
 		case <-ctx.Done():
 			return
 		}
+	}
+}
+
+// handleUpdate routes one update under a recover guard, so a panic in any
+// handler is logged and the loop keeps serving the next update (ADR-0003 R0,
+// fixes audit finding H1: previously an edited_message aborted the process).
+func (b *Bot) handleUpdate(tg *tgbotapi.BotAPI, update tgbotapi.Update) {
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("panic while handling update", "update_id", update.UpdateID, "err", r)
+		}
+	}()
+
+	switch classifyUpdate(update) {
+	case updateKindCallback:
+		b.handleCallbackStub(tg, update)
+	case updateKindMessage:
+		b.handleMessage(tg, update)
+	default:
+		slog.Debug("ignoring unsupported update", "update_id", update.UpdateID)
+	}
+}
+
+// handleMessage runs the M1–M2 guards and then the existing actions dispatch
+// unchanged. Command handlers and the actions map are untouched; only the dead
+// "echo" tgbotapi.NewMessage construction was dropped (its Chat.ID was never
+// used downstream).
+func (b *Bot) handleMessage(tg *tgbotapi.BotAPI, update tgbotapi.Update) {
+	msg := update.Message
+	switch decideMessage(msg) {
+	case messageSkipNilFrom:
+		slog.Warn("ignoring message without a sender", "update_id", update.UpdateID)
+		return
+	case messageSkipNotPrivate:
+		slog.Debug("ignoring non-private message", "update_id", update.UpdateID)
+		return
+	}
+
+	a := actions[getCommand(msg.Text)]
+	if a == nil {
+		sendResponse(createTextReplyMessage("Command not supported", msg), tg)
+		return
+	}
+	resp, err := a(msg.Text, b, update)
+	if err != nil {
+		sendResponse(createTextReplyMessage(fmt.Sprintf("Error: %v", err), msg), tg)
+		return
+	}
+	sendResponse(resp, tg)
+}
+
+// handleCallbackStub acknowledges a button press so the Telegram client stops
+// its loading clock, and takes no other action until T-22 wires the
+// registration and admin-decision flows (ADR-0003 §4.4).
+func (b *Bot) handleCallbackStub(tg *tgbotapi.BotAPI, update tgbotapi.Update) {
+	cq := update.CallbackQuery
+	slog.Debug("callback update received (unhandled until T-22)", "update_id", update.UpdateID, "data", cq.Data)
+	if _, err := tg.AnswerCallbackQuery(tgbotapi.NewCallback(cq.ID, "")); err != nil {
+		slog.Warn("acknowledge callback failed", "update_id", update.UpdateID, "err", err)
 	}
 }
 func getCommand(text string) string {
