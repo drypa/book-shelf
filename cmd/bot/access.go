@@ -126,11 +126,6 @@ func nowRFC3339() string {
 	return time.Now().UTC().Format(time.RFC3339)
 }
 
-// callbackRequestRegistration is the inline-button payload a stranger taps to
-// start registration (ADR-0003 §4.4). The real handler lands in T-22; the T-18
-// callback stub already acknowledges the tap so the client clock stops.
-const callbackRequestRegistration = "req:new"
-
 // guardOutcome is the access decision for one message sender.
 type guardOutcome int
 
@@ -198,7 +193,7 @@ func accessReply(outcome guardOutcome, request *tgbotapi.Message) *tgbotapi.Mess
 		msg := newPlainReply("Access is closed. Press the button to request registration.", request)
 		msg.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
 			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData("Register", callbackRequestRegistration),
+				tgbotapi.NewInlineKeyboardButtonData("Register", cbRegister),
 			),
 		)
 		return msg

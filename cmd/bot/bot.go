@@ -131,7 +131,7 @@ func (b *Bot) handleUpdate(tg *tgbotapi.BotAPI, update tgbotapi.Update) {
 
 	switch classifyUpdate(update) {
 	case updateKindCallback:
-		b.handleCallbackStub(tg, update)
+		b.handleCallback(tg, update)
 	case updateKindMessage:
 		b.handleMessage(tg, update)
 	default:
@@ -181,16 +181,6 @@ func (b *Bot) handleMessage(tg *tgbotapi.BotAPI, update tgbotapi.Update) {
 	sendResponse(resp, tg)
 }
 
-// handleCallbackStub acknowledges a button press so the Telegram client stops
-// its loading clock, and takes no other action until T-22 wires the
-// registration and admin-decision flows (ADR-0003 §4.4).
-func (b *Bot) handleCallbackStub(tg *tgbotapi.BotAPI, update tgbotapi.Update) {
-	cq := update.CallbackQuery
-	slog.Debug("callback update received (unhandled until T-22)", "update_id", update.UpdateID, "data", cq.Data)
-	if _, err := tg.AnswerCallbackQuery(tgbotapi.NewCallback(cq.ID, "")); err != nil {
-		slog.Warn("acknowledge callback failed", "update_id", update.UpdateID, "err", err)
-	}
-}
 func getCommand(text string) string {
 	index := strings.Index(text, " ")
 	if index == -1 {
