@@ -71,6 +71,12 @@ Gotchas worth knowing before touching compose:
 ## Bot environment variables (cmd/bot/main.go, internal/config)
 
 - `BOT_TOKEN` — required.
+- `ADMIN_TELEGRAM_ID` — required — the single admin's Telegram ID; must be a positive
+  integer, validated in `cmd/bot/main.go` right after `config.Required` (intentionally
+  not typed inside `internal/config`). Without it the bot exits 1 with the shared
+  `missing required environment variables: …` message; a bad value gets its own error.
+  The admin must have written to the bot at least once — Telegram forbids bot-first DMs,
+  so registration requests cannot be delivered otherwise.
 - `LIBRARY_DIR` — **directory containing the `.zip` archives** (container path, `/library`).
   It is passed to `newStorage()`; the bot resolves a book as `<LIBRARY_DIR>/<archive column>`.
 - `DB_DSN` — required — the SQLite DSN for `sql.Open("sqlite3", ...)`; in compose it is
@@ -94,6 +100,28 @@ the zip's base name (no `.zip`) and `file_name` must equal the zip entry name ve
 
 ## Bot command flow
 
+Every update goes through the router `processNotifications` → `handleUpdate`
+(cmd/bot/bot.go): `callback_query` → `handleCallback` (cmd/bot/callbacks.go),
+`message` → `handleMessage`, everything else (edited_message, …) is ignored with a
+debug log; **each update is handled under `recover()`** — a panic in one handler is
+logged with its `update_id` and the loop continues (audit fix H1). `telegram-bot-api`
+v4.6.4 has no `AllowedUpdates`, so non-message updates arrive by default and must stay
+routable; the library upgrade to v5 is a separate debt (ADR-0003 variant E).
+
+Before the `actions` map runs the **access guard** (cmd/bot/access.go) for every
+private message: `ADMIN_TELEGRAM_ID` short-circuits to allow (the admin has no row and
+cannot be blacklisted); everyone else is looked up in the `users` table **on every
+message**. Only `approved` reaches the dispatch table below — unknown/pending/declined
+get a plain status message (no reply-keyboard); unknown additionally gets the inline
+"Register" button.
+
+Callback protocol (cmd/bot/callbacks.go): `req:new` registers the pressing user
+(`CreatePending` + request card delivered to the admin); `adm:approve:<id>` /
+`adm:decline:<id>` are honored **only** when the callback sender is the admin. Decisions
+are one atomic `UPDATE … WHERE status='pending'` (RowsAffected): double taps/stale
+buttons are idempotent alerts, terminal states never reverse, and buttons keep working
+after a restart because they key on `telegram_id`, not on a message.
+
 State is per-user and lives only in memory (`Searcher` in cmd/bot/searcher.go), so it is
 lost on restart. Dispatch table is `actions` in cmd/bot/bot.go:
 
@@ -105,6 +133,10 @@ lost on restart. Dispatch table is `actions` in cmd/bot/bot.go:
 
 ## Layout notes
 
+- `cmd/bot/access.go` + `cmd/bot/callbacks.go` — access control (ADR-0003). The `users`
+  table belongs to the **bot**: it is created by `AccessRepository.EnsureSchema()` at bot
+  startup, additive and idempotent. Do **not** add it to `storage`, `cmd/db-create` or the
+  books pipeline; `books` stays untouched.
 - `storage/book.go` — `storage.Book` is the shared row model used by both the pipeline and
   the bot. Change columns here plus the SELECT lists in `cmd/bot/repository.go` **and**
   `finder/db/db.go`, which must stay in sync with the `books` table.

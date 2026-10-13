@@ -170,6 +170,30 @@ func TestCallbackDecisionSequencesOnRepository(t *testing.T) {
 // The unknown-callback branch and the guard rails must not dereference a nil
 // From/Message: handleCallback drops such updates (the recover in handleUpdate
 // is the last line of defense, not the design).
+func TestRegistrationTapAlert(t *testing.T) {
+	tests := []struct {
+		name        string
+		status      AccessStatus
+		wantAlert   string
+		wantHandled bool
+	}{
+		{name: "declined cannot re-request", status: StatusDeclined, wantAlert: "Your registration request was declined.", wantHandled: true},
+		{name: "approved has nothing to request", status: StatusApproved, wantAlert: "Your access is already approved.", wantHandled: true},
+		{name: "none proceeds", status: StatusNone, wantHandled: false},
+		{name: "pending proceeds to resend", status: StatusPending, wantHandled: false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			alert, handled := registrationTapAlert(tc.status)
+			if handled != tc.wantHandled || alert != tc.wantAlert {
+				t.Errorf("registrationTapAlert(%q) = (%q, %v), want (%q, %v)",
+					tc.status, alert, handled, tc.wantAlert, tc.wantHandled)
+			}
+		})
+	}
+}
+
 func TestHandleCallbackNilSenderIsIgnored(t *testing.T) {
 	b := &Bot{}
 	update := tgbotapi.Update{CallbackQuery: &tgbotapi.CallbackQuery{ID: "c1", Data: cbRegister}}

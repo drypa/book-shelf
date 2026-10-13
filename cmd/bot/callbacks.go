@@ -110,11 +110,38 @@ func (b *Bot) handleCallback(tg *tgbotapi.BotAPI, update tgbotapi.Update) {
 	}
 }
 
+// registrationTapAlert handles a req:new tap that cannot lead to a new request:
+// a declined user must not be able to request again (the old button may still
+// exist in their chat history), and an approved one has nothing to request.
+// handled=false means the tap may proceed (none or pending — pending re-sends,
+// C6). Pure, table-testable.
+func registrationTapAlert(status AccessStatus) (alert string, handled bool) {
+	switch status {
+	case StatusDeclined:
+		return "Your registration request was declined.", true
+	case StatusApproved:
+		return "Your access is already approved.", true
+	default: // StatusNone, StatusPending
+		return "", false
+	}
+}
+
 // handleRegistrationRequest implements req:new (ADR-0003 C5–C8).
 func (b *Bot) handleRegistrationRequest(tg *tgbotapi.BotAPI, cq *tgbotapi.CallbackQuery) {
 	fromID := int64(cq.From.ID)
 	if fromID == b.adminID {
 		answerCallback(tg, cq.ID, "Admin does not need registration.", true) // C8
+		return
+	}
+
+	status, err := b.access.Status(fromID)
+	if err != nil {
+		slog.Error("read access status failed", "telegram_id", fromID, "err", err)
+		answerCallback(tg, cq.ID, "Something went wrong, please try again later.", true)
+		return
+	}
+	if alert, handled := registrationTapAlert(status); handled {
+		answerCallback(tg, cq.ID, alert, true)
 		return
 	}
 
