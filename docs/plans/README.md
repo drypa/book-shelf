@@ -1,5 +1,8 @@
 # План работ: развёртывание book-shelf через Docker Compose
 
+> **Другие планы.** Декомпозиция задачи контроля доступа (ADR-0003, задачи
+> T-18…T-23) — [access-control.md](access-control.md).
+
 Декомпозиция задачи [`docs/tasks/docker-compose-deploy.md`](../tasks/docker-compose-deploy.md)
 на основе технического решения [ADR-0001](../adr/0001-docker-compose-deployment.md).
 
