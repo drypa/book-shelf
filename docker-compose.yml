@@ -29,6 +29,7 @@ services:
     environment:
       <<: *logging
       BOT_TOKEN: "${BOT_TOKEN:-}"                  # валидируется приложением, см. §5.6
+      ADMIN_TELEGRAM_ID: "${ADMIN_TELEGRAM_ID:-}"  # только bot; пустое значение проходит compose, валидирует приложение
       LIBRARY_DIR: "/library"                      # путь в контейнере зафиксирован
       DB_DSN: "${DB_DSN:-/data/${DB_FILE:-db.sqlite3}}"
       HTTP_PROXY: "${HTTP_PROXY:-}"

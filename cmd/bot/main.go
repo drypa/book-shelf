@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 
 	"github.com/drypa/book-shelf/internal/config"
@@ -29,13 +30,21 @@ func main() {
 func run() error {
 	// Configuration is read before any side effect, so a missing variable is
 	// reported before the storage is probed.
-	values, err := config.Required("BOT_TOKEN", "LIBRARY_DIR", "DB_DSN")
+	values, err := config.Required("BOT_TOKEN", "LIBRARY_DIR", "DB_DSN", "ADMIN_TELEGRAM_ID")
 	if err != nil {
 		return fmt.Errorf("configuration: %w", err)
 	}
 	botToken := values["BOT_TOKEN"]
 	libraryDir := values["LIBRARY_DIR"]
 	dsn := values["DB_DSN"]
+	// Required only proves presence; the value must still be a positive Telegram
+	// ID. Validated here, before any side effect, so a bad value fails the same
+	// fail-fast way as a missing one. Not extended into internal/config: this
+	// typing is needed once, here (ADR-0003 §4.2).
+	adminID, err := strconv.ParseInt(values["ADMIN_TELEGRAM_ID"], 10, 64)
+	if err != nil || adminID <= 0 {
+		return fmt.Errorf("configuration: ADMIN_TELEGRAM_ID must be a positive integer, got %q", values["ADMIN_TELEGRAM_ID"])
+	}
 	// Optional; an empty value means a direct connection, not an invalid proxy.
 	httpProxy := config.Lookup("HTTP_PROXY")
 
@@ -60,7 +69,7 @@ func run() error {
 	defer stop()
 
 	repository := NewRepository(db)
-	if _, err := newBot(ctx, botToken, repository, storage, httpProxy); err != nil {
+	if _, err := newBot(ctx, botToken, adminID, repository, storage, httpProxy); err != nil {
 		_ = db.Close()
 		return fmt.Errorf("start bot: %w", err)
 	}

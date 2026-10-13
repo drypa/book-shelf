@@ -14,7 +14,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-var botEnv = []string{"BOT_TOKEN", "LIBRARY_DIR", "DB_DSN", "DB_PATH", "DB_CONNECTION_STRING", "HTTP_PROXY"}
+var botEnv = []string{"BOT_TOKEN", "LIBRARY_DIR", "DB_DSN", "DB_PATH", "DB_CONNECTION_STRING", "HTTP_PROXY", "ADMIN_TELEGRAM_ID"}
 
 func cleanBotEnv(t *testing.T) {
 	t.Helper()
@@ -47,7 +47,7 @@ func TestRunReportsEveryMissingVariable(t *testing.T) {
 	if err == nil {
 		t.Fatal("run() error = nil, want a configuration error")
 	}
-	want := "missing required environment variables: BOT_TOKEN, LIBRARY_DIR, DB_DSN"
+	want := "missing required environment variables: BOT_TOKEN, LIBRARY_DIR, DB_DSN, ADMIN_TELEGRAM_ID"
 	if !strings.Contains(err.Error(), want) {
 		t.Fatalf("run() error = %q, want it to contain %q", err, want)
 	}
@@ -76,10 +76,30 @@ func TestRunFailsOnMissingLibraryDirectory(t *testing.T) {
 	t.Setenv("BOT_TOKEN", "test-token")
 	t.Setenv("LIBRARY_DIR", missing)
 	t.Setenv("DB_DSN", filepath.Join(t.TempDir(), "db.sqlite3"))
+	t.Setenv("ADMIN_TELEGRAM_ID", "42")
 
 	err := run()
 	if err == nil || !strings.Contains(err.Error(), "init storage") {
 		t.Fatalf("run() error = %v, want an init storage error", err)
+	}
+}
+
+// TestRunRejectsInvalidAdminID: ADMIN_TELEGRAM_ID is required AND must be a
+// positive Telegram integer; non-numeric/zero/negative is a distinct message.
+func TestRunRejectsInvalidAdminID(t *testing.T) {
+	for _, value := range []string{"abc", "0", "-7"} {
+		t.Run("value="+value, func(t *testing.T) {
+			cleanBotEnv(t)
+			t.Setenv("BOT_TOKEN", "test-token")
+			t.Setenv("LIBRARY_DIR", t.TempDir())
+			t.Setenv("DB_DSN", filepath.Join(t.TempDir(), "db.sqlite3"))
+			t.Setenv("ADMIN_TELEGRAM_ID", value)
+
+			err := run()
+			if err == nil || !strings.Contains(err.Error(), "ADMIN_TELEGRAM_ID must be a positive integer") {
+				t.Fatalf("run() error = %v, want the positive-integer validation error", err)
+			}
+		})
 	}
 }
 
