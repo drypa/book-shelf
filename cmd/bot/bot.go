@@ -139,10 +139,10 @@ func (b *Bot) handleUpdate(tg *tgbotapi.BotAPI, update tgbotapi.Update) {
 	}
 }
 
-// handleMessage runs the M1–M2 guards and then the existing actions dispatch
-// unchanged. Command handlers and the actions map are untouched; only the dead
-// "echo" tgbotapi.NewMessage construction was dropped (its Chat.ID was never
-// used downstream).
+// handleMessage runs the M1–M2 guards, then the access guard (T-21), and only
+// then the existing actions dispatch. The command handlers, the actions map
+// and the Searcher are untouched; only the dead "echo" tgbotapi.NewMessage
+// construction was dropped (its Chat.ID was never used downstream).
 func (b *Bot) handleMessage(tg *tgbotapi.BotAPI, update tgbotapi.Update) {
 	msg := update.Message
 	switch decideMessage(msg) {
@@ -151,6 +151,20 @@ func (b *Bot) handleMessage(tg *tgbotapi.BotAPI, update tgbotapi.Update) {
 		return
 	case messageSkipNotPrivate:
 		slog.Debug("ignoring non-private message", "update_id", update.UpdateID)
+		return
+	}
+
+	// Single choke point to the library (ADR-0003 D9): only guardAllow reaches
+	// the actions map, so neither search nor file access is reachable for
+	// anyone else, no matter what command they send.
+	outcome, err := b.guardAccess(int64(msg.From.ID))
+	if err != nil {
+		slog.Error("access check failed", "update_id", update.UpdateID, "err", err)
+		sendResponse(newPlainReply("Something went wrong, please try again later.", msg), tg)
+		return
+	}
+	if outcome != guardAllow {
+		sendResponse(accessReply(outcome, msg), tg)
 		return
 	}
 

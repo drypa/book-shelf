@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"errors"
 	"time"
+
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
 
 // AccessStatus is the persisted access state of a Telegram user. The zero value
@@ -122,4 +124,83 @@ WHERE telegram_id = ? AND status = 'pending'`,
 
 func nowRFC3339() string {
 	return time.Now().UTC().Format(time.RFC3339)
+}
+
+// callbackRequestRegistration is the inline-button payload a stranger taps to
+// start registration (ADR-0003 §4.4). The real handler lands in T-22; the T-18
+// callback stub already acknowledges the tap so the client clock stops.
+const callbackRequestRegistration = "req:new"
+
+// guardOutcome is the access decision for one message sender.
+type guardOutcome int
+
+const (
+	guardAllow    guardOutcome = iota // admin or approved: run the command as before
+	guardPending                      // request awaiting the admin's decision
+	guardDeclined                     // blacklisted
+	guardUnknown                      // never registered: prompt to register
+)
+
+// outcomeFromStatus maps the admin short-circuit plus a stored status to a
+// guard outcome. Pure, so the whole decision table is testable without a
+// database or network.
+func outcomeFromStatus(adminID, fromID int64, status AccessStatus) guardOutcome {
+	if fromID == adminID {
+		// The admin is not a row in users and cannot be blacklisted (ADR M3).
+		return guardAllow
+	}
+	switch status {
+	case StatusApproved:
+		return guardAllow
+	case StatusPending:
+		return guardPending
+	case StatusDeclined:
+		return guardDeclined
+	default: // StatusNone
+		return guardUnknown
+	}
+}
+
+// guardAccess resolves the outcome for a message sender. The admin short-circuits
+// without touching the database; everyone else gets a fresh status read, so the
+// decision always reflects the latest admin action (FR6: one query per message).
+func (b *Bot) guardAccess(fromID int64) (guardOutcome, error) {
+	if fromID == b.adminID {
+		return guardAllow, nil
+	}
+	status, err := b.access.Status(fromID)
+	if err != nil {
+		return guardUnknown, err
+	}
+	return outcomeFromStatus(b.adminID, fromID, status), nil
+}
+
+// newPlainReply builds a reply WITHOUT the command keyboard: an unauthorized
+// user must not be shown the /start button they cannot use yet. The approved
+// flow keeps using createTextReplyMessage, which still carries that keyboard.
+func newPlainReply(text string, request *tgbotapi.Message) *tgbotapi.MessageConfig {
+	msg := tgbotapi.NewMessage(request.Chat.ID, text)
+	msg.ReplyToMessageID = request.MessageID
+	return &msg
+}
+
+// accessReply renders the status message for a user the guard did not allow
+// (FR1). Only the never-registered case carries the Register button; pending
+// and declined are text-only so a blacklisted user is offered nothing
+// actionable.
+func accessReply(outcome guardOutcome, request *tgbotapi.Message) *tgbotapi.MessageConfig {
+	switch outcome {
+	case guardPending:
+		return newPlainReply("Your registration request is pending approval.", request)
+	case guardDeclined:
+		return newPlainReply("Access denied.", request)
+	default: // guardUnknown
+		msg := newPlainReply("Access is closed. Press the button to request registration.", request)
+		msg.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
+			tgbotapi.NewInlineKeyboardRow(
+				tgbotapi.NewInlineKeyboardButtonData("Register", callbackRequestRegistration),
+			),
+		)
+		return msg
+	}
 }
