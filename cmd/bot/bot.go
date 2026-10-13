@@ -16,13 +16,14 @@ type Bot struct {
 	searcher   *Searcher
 	repository *Repository
 	storage    *storage
-	// adminID is the single operator's Telegram ID (ADMIN_TELEGRAM_ID). T-21's
-	// AccessGuard short-circuits on it; stored here from T-19 so main wires it
-	// once at startup.
+	// access holds the users table for the access guard (T-21) and the callback
+	// flows (T-22). adminID is the single operator's Telegram ID
+	// (ADMIN_TELEGRAM_ID); the guard short-circuits on it.
+	access  *AccessRepository
 	adminID int64
 }
 
-func newBot(ctx context.Context, token string, adminID int64, r *Repository, s *storage, proxy string) (*Bot, error) {
+func newBot(ctx context.Context, token string, adminID int64, r *Repository, s *storage, access *AccessRepository, proxy string) (*Bot, error) {
 
 	bot, err := newTgBot(token, proxy)
 	if err != nil {
@@ -36,7 +37,7 @@ func newBot(ctx context.Context, token string, adminID int64, r *Repository, s *
 		return nil, errors.Wrap(err, "get update channel")
 	}
 
-	b := &Bot{searcher: NewSearcher(), repository: r, storage: s, adminID: adminID}
+	b := &Bot{searcher: NewSearcher(), repository: r, storage: s, access: access, adminID: adminID}
 	go b.processNotifications(ctx, bot, updatesChan)
 
 	return b, nil

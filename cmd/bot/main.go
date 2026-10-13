@@ -65,11 +65,21 @@ func run() error {
 		return fmt.Errorf("open database %q: %w", dsn, err)
 	}
 
+	// Access-control schema is created by the bot itself (ADR-0003 §4.5): it is
+	// additive and idempotent, so an existing database gains the users table on
+	// the first run of a new build. A failure here is fatal — the bot must never
+	// run without it, or every user would be treated as unauthorized.
+	access := NewAccessRepository(db)
+	if err := access.EnsureSchema(); err != nil {
+		_ = db.Close()
+		return fmt.Errorf("init users schema: %w", err)
+	}
+
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	repository := NewRepository(db)
-	if _, err := newBot(ctx, botToken, adminID, repository, storage, httpProxy); err != nil {
+	if _, err := newBot(ctx, botToken, adminID, repository, storage, access, httpProxy); err != nil {
 		_ = db.Close()
 		return fmt.Errorf("start bot: %w", err)
 	}
